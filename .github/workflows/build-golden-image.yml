@@ -90,10 +90,10 @@ jobs:
         run: |
           # Helper: extract YAML section and append to summary
           dump_section() {
-            local title="$1" pattern="$2" filter="${3:-^ }"
+            local title="$1" section="$2" filter="${3:-^  }"
             echo "### ${title}" >> $GITHUB_STEP_SUMMARY
             echo '```' >> $GITHUB_STEP_SUMMARY
-            awk "/${pattern}/,/^[a-z_]+:/" cis-config.yml | grep -E "${filter}" | grep -v '^$' | head -30 >> $GITHUB_STEP_SUMMARY || echo "  (no values found)" >> $GITHUB_STEP_SUMMARY
+            awk "/^${section}:/{found=1; next} found && /^[a-z_]+:/{exit} found && /${filter}/" cis-config.yml | head -30 >> $GITHUB_STEP_SUMMARY || echo "  (no values found)" >> $GITHUB_STEP_SUMMARY
             echo '```' >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
           }
@@ -104,13 +104,13 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
 
           if [ -f cis-config.yml ]; then
-            dump_section "SSH Hardening" "^ssh:" "^ "
-            dump_section "Credential Policy" "^pw_policy:" "^ "
-            dump_section "Session" "^session:" "^ "
-            dump_section "Kernel Hardening" "^kernel:" "^ "
-            dump_section "Network Hardening" "^network:" "^ "
-            dump_section "Services Masked (disabled)" "^services_masked:" "^ +- "
-            dump_section "Kernel Modules Disabled" "^modules_disabled:" "^ +- "
+            dump_section "SSH Hardening" "ssh" "^  "
+            dump_section "Credential Policy" "pw_policy" "^  "
+            dump_section "Session" "session" "^  "
+            dump_section "Kernel Hardening" "kernel" "^  "
+            dump_section "Network Hardening" "network" "^  "
+            dump_section "Services Masked (disabled)" "services_masked" "^  "
+            dump_section "Kernel Modules Disabled" "modules_disabled" "^  "
 
             echo "### GRUB Bootloader" >> $GITHUB_STEP_SUMMARY
             echo '```' >> $GITHUB_STEP_SUMMARY
@@ -120,7 +120,7 @@ jobs:
             echo '```' >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
 
-            dump_section "Security Packages Installed" "^packages_installed:" "^ +- "
+            dump_section "Security Packages Installed" "packages_installed" "^  "
           else
             echo "⚠️ \`cis-config.yml\` not found — using static defaults from \`hardening/configs/\`" >> $GITHUB_STEP_SUMMARY
           fi
