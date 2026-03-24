@@ -16,6 +16,7 @@ on:
         options:
           - 'analyze-only'
           - 'analyze-and-build'
+          - 'build-only'
 
       output_path:
         description: 'Local path to save ISO (e.g. /Users/aby/GoldenImages/)'
@@ -135,6 +136,7 @@ jobs:
   # ────────────────────────────────────────────────────────────
   analyze:
     name: "Review: Package Analysis"
+    if: inputs.mode != 'build-only'
     runs-on: self-hosted
     timeout-minutes: 60
 
@@ -196,17 +198,49 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "---" >> $GITHUB_STEP_SUMMARY
 
+          VERSION=$(basename "${{ inputs.iso_url }}" | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?' | head -1)
+          VERSION="${VERSION:-unknown}"
+
           if [ "${{ inputs.mode }}" = "analyze-only" ]; then
             echo "## ⏸️ Analyze Only Mode" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "Build was **not started**. To build the ISO:" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "1. Review the packages and CIS values above" >> $GITHUB_STEP_SUMMARY
-            echo "2. (Optional) Edit \`approved-packages.txt\` or \`cis-config.yml\` in the repo" >> $GITHUB_STEP_SUMMARY
-            echo "3. Re-run the workflow with mode = **analyze-and-build**" >> $GITHUB_STEP_SUMMARY
+            echo "2. (Optional) Copy the safe list, edit it, upload as \`approved-packages-${VERSION}.txt\` to the repo" >> $GITHUB_STEP_SUMMARY
+            echo "3. Re-run the workflow with mode = **build-only** or **analyze-and-build**" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "Reports saved locally at: \`~/GoldenImages/safe-packages-${VERSION}.txt\` etc." >> $GITHUB_STEP_SUMMARY
           else
             echo "> Build job will start automatically using these packages." >> $GITHUB_STEP_SUMMARY
           fi
+
+      - name: Add version suffix to report files
+        run: |
+          # Extract version from ISO URL
+          VERSION=$(basename "${{ inputs.iso_url }}" | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?' | head -1)
+          VERSION="${VERSION:-unknown}"
+
+          for f in safe-packages critical-packages risky-packages package-report approved-packages; do
+            if [ -f "./output/${f}.txt" ]; then
+              cp "./output/${f}.txt" "./output/${f}-${VERSION}.txt"
+            fi
+          done
+
+          # Save to local output path if set
+          DEST="${{ inputs.output_path }}"
+          if [ -z "$DEST" ]; then
+            DEST="$HOME/GoldenImages"
+          fi
+          mkdir -p "$DEST"
+
+          for f in ./output/*-${VERSION}.txt; do
+            [ -f "$f" ] && cp "$f" "$DEST/"
+          done
+
+          echo "Reports saved with version suffix: ${VERSION}"
+          echo "Location: ${DEST}/"
+          ls -la "$DEST/"*-${VERSION}.txt 2>/dev/null || true
 
       - name: Upload analysis artifacts
         uses: actions/upload-artifact@v4
@@ -226,9 +260,9 @@ jobs:
     name: "Build ISO"
     needs: [review-cis, analyze]
     if: |
-      inputs.mode == 'analyze-and-build' &&
       always() &&
-      needs.analyze.result == 'success' &&
+      inputs.mode != 'analyze-only' &&
+      (needs.analyze.result == 'success' || needs.analyze.result == 'skipped') &&
       (needs.review-cis.result == 'success' || needs.review-cis.result == 'skipped')
     runs-on: self-hosted
     timeout-minutes: 120
@@ -241,6 +275,7 @@ jobs:
         run: df -h / | tail -1
 
       - name: Download analysis results
+        if: inputs.mode == 'analyze-and-build'
         uses: actions/download-artifact@v4
         with:
           name: analysis-results
@@ -248,14 +283,27 @@ jobs:
 
       - name: Determine package list
         run: |
-          if [ -f ./approved-packages.txt ]; then
-            echo "✅ Using custom approved-packages.txt from repo"
+          mkdir -p ./output
+          VERSION=$(basename "${{ inputs.iso_url }}" | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?' | head -1)
+          VERSION="${VERSION:-unknown}"
+
+          # Check for versioned file first, then plain name, then analysis results
+          if [ -f "./approved-packages-${VERSION}.txt" ]; then
+            echo "✅ Using approved-packages-${VERSION}.txt from repo"
+            cp "./approved-packages-${VERSION}.txt" ./output/approved-packages.txt
+          elif [ -f ./approved-packages.txt ]; then
+            echo "✅ Using approved-packages.txt from repo"
             cp ./approved-packages.txt ./output/approved-packages.txt
           elif [ -f ./output/safe-packages.txt ]; then
             echo "✅ Using auto-detected safe packages from analysis"
             cp ./output/safe-packages.txt ./output/approved-packages.txt
           else
-            echo "::error::No package list found"
+            if [ "${{ inputs.mode }}" = "build-only" ]; then
+              echo "::error::build-only mode requires approved-packages-${VERSION}.txt (or approved-packages.txt) in the repo root."
+              echo "::error::Run analyze-only first, review safe-packages-${VERSION}.txt, then upload as approved-packages-${VERSION}.txt"
+            else
+              echo "::error::No package list found"
+            fi
             exit 1
           fi
           echo "Packages to remove: $(wc -l < ./output/approved-packages.txt | tr -d ' ')"
