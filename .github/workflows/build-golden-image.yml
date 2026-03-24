@@ -3,24 +3,13 @@ name: Build Golden Image ISO
 on:
   workflow_dispatch:
     inputs:
-      ubuntu_version:
-        description: 'Ubuntu version'
+      iso_url:
+        description: 'Ubuntu ISO download URL (e.g. https://releases.ubuntu.com/24.04.4/ubuntu-24.04.4-live-server-amd64.iso)'
         required: true
-        type: choice
-        default: '24.04.4'
-        options:
-          - '22.04.5'
-          - '24.04.4'
-          - 'custom'
-
-      custom_iso_url:
-        description: 'Custom ISO URL (only when version = custom)'
-        required: false
         type: string
-        default: ''
 
       output_filename:
-        description: 'Output ISO filename (leave blank for auto-generated name)'
+        description: 'Output ISO filename (leave blank for auto-generated)'
         required: false
         type: string
         default: ''
@@ -30,18 +19,6 @@ on:
         required: true
         type: boolean
         default: true
-
-      package_removal_list:
-        description: 'Packages to remove (one per line, comma-separated, or leave empty for auto-detect)'
-        required: false
-        type: string
-        default: ''
-
-      extra_packages_keep:
-        description: 'Extra packages to protect from removal (one per line or comma-separated)'
-        required: false
-        type: string
-        default: ''
 
       storage_destination:
         description: 'Where to save the built ISO'
@@ -54,149 +31,324 @@ on:
           - 's3'
 
       azure_container:
-        description: 'Azure Blob container name (for azure-blob storage)'
+        description: 'Azure Blob container name (for azure-blob)'
         required: false
         type: string
         default: 'golden-images'
 
       s3_bucket:
-        description: 'S3/MinIO bucket name (for s3 storage)'
+        description: 'S3/MinIO bucket name (for s3)'
         required: false
         type: string
         default: 'golden-images'
 
       s3_endpoint:
-        description: 'S3/MinIO endpoint URL (for s3 storage, e.g. https://minio.local:9000)'
+        description: 'S3/MinIO endpoint URL (for s3, e.g. https://minio.local:9000)'
         required: false
         type: string
         default: ''
 
 jobs:
-  build:
-    name: Build Golden Image
+  # ────────────────────────────────────────────────────────────
+  #  JOB 1a: DISPLAY CIS VALUES (instant — no ISO needed)
+  # ────────────────────────────────────────────────────────────
+  review-cis:
+    name: "Review: CIS Hardening Values"
+    if: inputs.enable_hardening == true
     runs-on: ubuntu-latest
-    timeout-minutes: 120
+    timeout-minutes: 5
 
     steps:
-      # ── Step 1: Validate Inputs ───────────────────────────────
-      - name: Validate inputs
-        run: |
-          echo "::group::Input Validation"
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-          # Version validation
-          if [ "${{ inputs.ubuntu_version }}" = "custom" ] && [ -z "${{ inputs.custom_iso_url }}" ]; then
-            echo "::error::When version is 'custom', you must provide a Custom ISO URL"
+      - name: Validate GRUB password secret
+        run: |
+          if [ -z "${{ secrets.GRUB_PASSWORD }}" ]; then
+            echo "::error::GRUB_PASSWORD secret is required when CIS hardening is enabled."
+            echo "::error::Set it under: Settings → Secrets and variables → Actions → Repository secrets"
             exit 1
           fi
 
-          # GRUB password required when hardening enabled
-          if [ "${{ inputs.enable_hardening }}" = "true" ]; then
-            if [ -z "${{ secrets.GRUB_PASSWORD }}" ]; then
-              echo "::error::GRUB_PASSWORD secret is required when CIS hardening is enabled."
-              echo "::error::Ask your repo admin to set it under Settings > Secrets and variables > Actions."
-              exit 1
-            fi
+      - name: Display CIS hardening values
+        run: |
+          echo "## 🔒 CIS Level 1 Hardening Values" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Source: \`cis-config.yml\` — edit this file in the repo to customize." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ -f cis-config.yml ]; then
+            # SSH
+            echo "### SSH Hardening" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            awk '/^ssh:/,/^[a-z_]+:/' cis-config.yml | grep '^ ' | grep -v '^$' >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+
+            # Password Policy
+            echo "### Password Policy" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            awk '/^password_policy:/,/^[a-z_]+:/' cis-config.yml | grep '^ ' | grep -v '^$' >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+
+            # Session
+            echo "### Session" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            awk '/^session:/,/^[a-z_]+:/' cis-config.yml | grep '^ ' | grep -v '^$' >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+
+            # Kernel
+            echo "### Kernel Hardening" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            awk '/^kernel:/,/^[a-z_]+:/' cis-config.yml | grep '^ ' | grep -v '^$' >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+
+            # Network
+            echo "### Network Hardening" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            awk '/^network:/,/^[a-z_]+:/' cis-config.yml | grep '^ ' | grep -v '^$' >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+
+            # Services Masked
+            echo "### Services Masked (disabled)" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            awk '/^services_masked:/,/^[a-z_]+:/' cis-config.yml | grep -E '^ +- ' | head -20 >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+
+            # Modules Disabled
+            echo "### Kernel Modules Disabled" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            awk '/^modules_disabled:/,/^[a-z_]+:/' cis-config.yml | grep -E '^ +- ' | head -20 >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+
+            # GRUB
+            echo "### GRUB Bootloader" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            echo "  Password protection: ENABLED (PBKDF2)" >> $GITHUB_STEP_SUMMARY
+            echo "  Boot without password: YES (--unrestricted)" >> $GITHUB_STEP_SUMMARY
+            echo "  Edit GRUB requires password: YES (username: admin)" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+
+            # Security Packages
+            echo "### Security Packages Installed" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            awk '/^packages_installed:/,/^[a-z_]+:/' cis-config.yml | grep -E '^ +- ' | head -20 >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+          else
+            echo "⚠️ \`cis-config.yml\` not found — using static defaults from \`hardening/configs/\`" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            .github/scripts/display-cis-values.sh >> $GITHUB_STEP_SUMMARY 2>&1 || true
           fi
 
-          # Storage credential validation
-          if [ "${{ inputs.storage_destination }}" = "azure-blob" ]; then
-            if [ -z "${{ secrets.AZURE_CONNECTION_STRING }}" ]; then
-              echo "::error::AZURE_CONNECTION_STRING secret is required for Azure Blob storage."
-              exit 1
-            fi
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "---" >> $GITHUB_STEP_SUMMARY
+          echo "> **To customize:** Edit \`cis-config.yml\` in the repo, commit, and re-run the workflow." >> $GITHUB_STEP_SUMMARY
+
+  # ────────────────────────────────────────────────────────────
+  #  JOB 1b: ANALYZE PACKAGES (parallel with CIS review)
+  # ────────────────────────────────────────────────────────────
+  analyze:
+    name: "Review: Package Analysis"
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Validate inputs
+        run: |
+          if [ -z "${{ inputs.iso_url }}" ]; then
+            echo "::error::ISO URL is required"
+            exit 1
+          fi
+
+          if [ "${{ inputs.storage_destination }}" = "azure-blob" ] && [ -z "${{ secrets.AZURE_CONNECTION_STRING }}" ]; then
+            echo "::error::AZURE_CONNECTION_STRING secret required for Azure Blob storage"
+            exit 1
           fi
 
           if [ "${{ inputs.storage_destination }}" = "s3" ]; then
             if [ -z "${{ secrets.AWS_ACCESS_KEY_ID }}" ] || [ -z "${{ secrets.AWS_SECRET_ACCESS_KEY }}" ]; then
-              echo "::error::AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY secrets are required for S3 storage."
+              echo "::error::AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY secrets required for S3"
               exit 1
             fi
           fi
 
-          echo "All inputs validated successfully"
-          echo "::endgroup::"
-
-      # ── Step 2: Checkout ──────────────────────────────────────
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # ── Step 3: Free Disk Space ───────────────────────────────
       - name: Free disk space
         run: |
-          echo "::group::Freeing disk space"
-          df -h /
-          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /usr/local/share/boost
-          sudo rm -rf /usr/share/swift /usr/local/.ghcup
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /usr/local/share/boost /usr/share/swift /usr/local/.ghcup
           sudo apt-get clean 2>/dev/null || true
-          echo "After cleanup:"
-          df -h /
-          echo "::endgroup::"
 
-      # ── Step 4: Cache Base ISO ────────────────────────────────
       - name: Cache base ISO
         uses: actions/cache@v4
         with:
           path: ./cache
-          key: iso-${{ inputs.ubuntu_version }}-${{ hashFiles(inputs.custom_iso_url || 'default') }}
-          restore-keys: |
-            iso-${{ inputs.ubuntu_version }}-
+          key: iso-${{ inputs.iso_url }}
 
-      # ── Step 5: Prepare Package Lists ─────────────────────────
-      - name: Prepare package lists
-        run: .github/scripts/prepare-packages.sh
-        env:
-          PACKAGE_REMOVAL_LIST: ${{ inputs.package_removal_list }}
-          EXTRA_PACKAGES_KEEP: ${{ inputs.extra_packages_keep }}
-          OUTPUT_DIR: ./output
+      - name: Run package analysis
+        run: |
+          ./golden-image-builder.sh \
+            --analyze-only \
+            --output-dir ./output \
+            --cache-dir ./cache \
+            --url "${{ inputs.iso_url }}"
 
-      # ── Step 6: Generate GRUB Hash ────────────────────────────
+      - name: Display packages for review
+        run: |
+          echo "## 📦 Package Analysis Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ -f ./output/safe-packages.txt ]; then
+            SAFE=$(wc -l < ./output/safe-packages.txt | tr -d ' ')
+            CRITICAL=$(wc -l < ./output/critical-packages.txt 2>/dev/null | tr -d ' ')
+            RISKY=$(wc -l < ./output/risky-packages.txt 2>/dev/null | tr -d ' ')
+
+            echo "| Category | Count |" >> $GITHUB_STEP_SUMMARY
+            echo "|----------|-------|" >> $GITHUB_STEP_SUMMARY
+            echo "| Critical (keep) | ${CRITICAL} |" >> $GITHUB_STEP_SUMMARY
+            echo "| **Safe (will remove)** | **${SAFE}** |" >> $GITHUB_STEP_SUMMARY
+            echo "| Risky (skip) | ${RISKY} |" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+
+            echo "### Packages that WILL BE REMOVED:" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            cat ./output/safe-packages.txt >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+
+            echo "<details><summary>Click to see CRITICAL packages (will be kept)</summary>" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            cat ./output/critical-packages.txt >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            echo "</details>" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+
+            if [ -s ./output/risky-packages.txt ]; then
+              echo "<details><summary>Click to see RISKY packages (not removed)</summary>" >> $GITHUB_STEP_SUMMARY
+              echo "" >> $GITHUB_STEP_SUMMARY
+              echo '```' >> $GITHUB_STEP_SUMMARY
+              cat ./output/risky-packages.txt >> $GITHUB_STEP_SUMMARY
+              echo '```' >> $GITHUB_STEP_SUMMARY
+              echo "</details>" >> $GITHUB_STEP_SUMMARY
+            fi
+          else
+            echo "⚠️ Analysis produced no results. Check the logs above." >> $GITHUB_STEP_SUMMARY
+          fi
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "---" >> $GITHUB_STEP_SUMMARY
+          echo "> **To use a custom list:** Copy the packages above, edit them," >> $GITHUB_STEP_SUMMARY
+          echo "> save as \`approved-packages.txt\` in the repo root, commit, and re-run." >> $GITHUB_STEP_SUMMARY
+          echo "> The build will use your file instead of auto-detected packages." >> $GITHUB_STEP_SUMMARY
+
+      - name: Upload analysis artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: analysis-results
+          path: |
+            ./output/safe-packages.txt
+            ./output/critical-packages.txt
+            ./output/risky-packages.txt
+            ./output/package-report.txt
+          retention-days: 1
+
+      - name: Review instructions
+        run: |
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "---" >> $GITHUB_STEP_SUMMARY
+          echo "## ✅ Next Step" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Review the package list and CIS values (see the other job's summary), then:" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **✅ Approve** → Click \"Review deployments\" below to start the build" >> $GITHUB_STEP_SUMMARY
+          echo "- **✏️ Edit & Re-run** → Commit \`approved-packages.txt\` or edit \`cis-config.yml\`, then trigger a new run" >> $GITHUB_STEP_SUMMARY
+
+  # ────────────────────────────────────────────────────────────
+  #  JOB 2: BUILD (waits for approval via environment gate)
+  # ────────────────────────────────────────────────────────────
+  build:
+    name: "Build ISO"
+    needs: [review-cis, analyze]
+    if: |
+      always() &&
+      needs.analyze.result == 'success' &&
+      (needs.review-cis.result == 'success' || needs.review-cis.result == 'skipped')
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /usr/local/share/boost /usr/share/swift /usr/local/.ghcup
+          sudo apt-get clean 2>/dev/null || true
+
+      - name: Restore ISO cache
+        uses: actions/cache@v4
+        with:
+          path: ./cache
+          key: iso-${{ inputs.iso_url }}
+
+      - name: Download analysis results
+        uses: actions/download-artifact@v4
+        with:
+          name: analysis-results
+          path: ./output
+
+      - name: Determine package list
+        run: |
+          if [ -f ./approved-packages.txt ]; then
+            echo "✅ Using custom approved-packages.txt from repo"
+            cp ./approved-packages.txt ./output/approved-packages.txt
+          elif [ -f ./output/safe-packages.txt ]; then
+            echo "✅ Using auto-detected safe packages from analysis"
+            cp ./output/safe-packages.txt ./output/approved-packages.txt
+          else
+            echo "::error::No package list found"
+            exit 1
+          fi
+          echo "Packages to remove: $(wc -l < ./output/approved-packages.txt | tr -d ' ')"
+
       - name: Generate GRUB password hash
         if: inputs.enable_hardening == true
         run: .github/scripts/generate-grub-hash.sh
         env:
           GRUB_PASSWORD: ${{ secrets.GRUB_PASSWORD }}
 
-      # ── Step 7: Display CIS Values ───────────────────────────
-      - name: Display CIS hardening values
-        if: inputs.enable_hardening == true
-        run: .github/scripts/display-cis-values.sh
-
-      # ── Step 8: Build Golden Image ────────────────────────────
       - name: Build golden image
         run: |
           ARGS="--auto-approve --output-dir ./output --cache-dir ./cache"
+          ARGS="${ARGS} --packages-file ./output/approved-packages.txt"
 
-          # Hardening
           if [ "${{ inputs.enable_hardening }}" = "true" ]; then
             ARGS="${ARGS} --harden-all"
           fi
 
-          # Package list
-          if [ -f "./output/user-packages.txt" ]; then
-            ARGS="${ARGS} --packages-file ./output/user-packages.txt"
-          fi
-
-          # Version or custom URL
-          if [ "${{ inputs.ubuntu_version }}" = "custom" ]; then
-            ARGS="${ARGS} --url ${{ inputs.custom_iso_url }}"
-          else
-            ARGS="${ARGS} ${{ inputs.ubuntu_version }}"
-          fi
+          ARGS="${ARGS} --url ${{ inputs.iso_url }}"
 
           echo "Running: ./golden-image-builder.sh ${ARGS}"
           eval ./golden-image-builder.sh ${ARGS}
 
-      # ── Step 9: Rename Output ─────────────────────────────────
       - name: Rename output ISO
         if: inputs.output_filename != ''
         run: |
           DEFAULT_NAME=$(ls ./output/golden-ubuntu-minimal-*.iso 2>/dev/null | head -1)
           if [ -n "$DEFAULT_NAME" ] && [ "$DEFAULT_NAME" != "./output/${{ inputs.output_filename }}" ]; then
             mv "$DEFAULT_NAME" "./output/${{ inputs.output_filename }}"
-            echo "Renamed: $(basename $DEFAULT_NAME) → ${{ inputs.output_filename }}"
           fi
 
-      # ── Step 10a: Upload as Artifact ──────────────────────────
+      # ── Upload to chosen storage ──────────────────────────
       - name: Upload ISO as artifact
         if: inputs.storage_destination == 'artifact'
         uses: actions/upload-artifact@v4
@@ -205,8 +357,7 @@ jobs:
           path: ./output/*.iso
           retention-days: 30
 
-      - name: Upload validation script as artifact
-        if: inputs.storage_destination == 'artifact'
+      - name: Upload validation script
         uses: actions/upload-artifact@v4
         with:
           name: validation-script
@@ -214,7 +365,6 @@ jobs:
           retention-days: 30
           if-no-files-found: ignore
 
-      # ── Step 10b: Upload to Azure Blob ────────────────────────
       - name: Upload to Azure Blob Storage
         if: inputs.storage_destination == 'azure-blob'
         run: .github/scripts/upload-storage.sh azure
@@ -223,7 +373,6 @@ jobs:
           AZURE_CONTAINER: ${{ inputs.azure_container }}
           ISO_DIR: ./output
 
-      # ── Step 10c: Upload to S3/MinIO ──────────────────────────
       - name: Upload to S3/MinIO
         if: inputs.storage_destination == 's3'
         run: .github/scripts/upload-storage.sh s3
@@ -234,11 +383,10 @@ jobs:
           S3_ENDPOINT: ${{ inputs.s3_endpoint }}
           ISO_DIR: ./output
 
-      # ── Step 11: Build Summary ────────────────────────────────
       - name: Build summary
         if: always()
         run: |
-          echo "## Golden Image Build Results" >> $GITHUB_STEP_SUMMARY
+          echo "## 🏗️ Golden Image Build Results" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
           ISO_FILE=$(ls ./output/*.iso 2>/dev/null | head -1)
@@ -248,17 +396,17 @@ jobs:
 
             echo "| Setting | Value |" >> $GITHUB_STEP_SUMMARY
             echo "|---------|-------|" >> $GITHUB_STEP_SUMMARY
-            echo "| Ubuntu Version | \`${{ inputs.ubuntu_version }}\` |" >> $GITHUB_STEP_SUMMARY
-            echo "| CIS Level 1 Hardening | \`${{ inputs.enable_hardening }}\` |" >> $GITHUB_STEP_SUMMARY
+            echo "| ISO URL | \`$(basename ${{ inputs.iso_url }})\` |" >> $GITHUB_STEP_SUMMARY
+            echo "| CIS Hardening | \`${{ inputs.enable_hardening }}\` |" >> $GITHUB_STEP_SUMMARY
             echo "| ISO Size | ${SIZE} |" >> $GITHUB_STEP_SUMMARY
-            echo "| ISO Filename | \`${FILENAME}\` |" >> $GITHUB_STEP_SUMMARY
+            echo "| Filename | \`${FILENAME}\` |" >> $GITHUB_STEP_SUMMARY
             echo "| Storage | \`${{ inputs.storage_destination }}\` |" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "### Next Steps" >> $GITHUB_STEP_SUMMARY
-            echo "1. Download the ISO from the artifacts section above" >> $GITHUB_STEP_SUMMARY
+            echo "1. Download the ISO from artifacts above" >> $GITHUB_STEP_SUMMARY
             echo "2. Boot a VM from the ISO and install Ubuntu" >> $GITHUB_STEP_SUMMARY
-            echo "3. Run the validation script: \`sudo bash validate-golden-image.sh\`" >> $GITHUB_STEP_SUMMARY
+            echo "3. Run validation: \`sudo bash validate-golden-image.sh\`" >> $GITHUB_STEP_SUMMARY
           else
-            echo "### Build Failed" >> $GITHUB_STEP_SUMMARY
-            echo "No ISO was produced. Check the build logs above for errors." >> $GITHUB_STEP_SUMMARY
+            echo "### ❌ Build Failed" >> $GITHUB_STEP_SUMMARY
+            echo "No ISO produced. Check build logs for errors." >> $GITHUB_STEP_SUMMARY
           fi
