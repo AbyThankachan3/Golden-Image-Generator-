@@ -18,4 +18,4 @@ hardening/cis/cis-values24.yaml
 configs/overrides-22.04.sh
 configs/overrides-24.04.sh
 
-output
+output/

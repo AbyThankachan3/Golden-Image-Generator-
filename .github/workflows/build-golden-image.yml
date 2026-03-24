@@ -352,19 +352,83 @@ jobs:
       - name: Rename output ISO
         if: inputs.output_filename != ''
         run: |
-          DEFAULT_NAME=$(ls ./output/golden-ubuntu-minimal-*.iso 2>/dev/null | head -1)
-          if [ -n "$DEFAULT_NAME" ] && [ "$DEFAULT_NAME" != "./output/${{ inputs.output_filename }}" ]; then
-            mv "$DEFAULT_NAME" "./output/${{ inputs.output_filename }}"
+          CUSTOM_NAME="${{ inputs.output_filename }}"
+          # Ensure .iso extension
+          if [[ "$CUSTOM_NAME" != *.iso ]]; then
+            CUSTOM_NAME="${CUSTOM_NAME}.iso"
           fi
+          DEFAULT_NAME=$(ls ./output/golden-ubuntu-minimal-*.iso 2>/dev/null | head -1)
+          if [ -n "$DEFAULT_NAME" ] && [ "$DEFAULT_NAME" != "./output/${CUSTOM_NAME}" ]; then
+            mv "$DEFAULT_NAME" "./output/${CUSTOM_NAME}"
+          fi
+
+      - name: Verify ISO integrity
+        run: |
+          # Find the ISO file
+          ISO_FILE=$(ls ./output/*.iso 2>/dev/null | head -1)
+          if [ -z "$ISO_FILE" ]; then
+            ISO_FILE=$(file ./output/* 2>/dev/null | grep "ISO 9660" | cut -d: -f1 | head -1)
+          fi
+
+          if [ -z "$ISO_FILE" ]; then
+            echo "::error::No ISO file found in ./output/"
+            ls -la ./output/ 2>/dev/null
+            exit 1
+          fi
+
+          echo "## ISO Verification" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # Check file type
+          FILE_INFO=$(file "$ISO_FILE")
+          echo "File: $(basename "$ISO_FILE")" >> $GITHUB_STEP_SUMMARY
+          echo "Size: $(du -h "$ISO_FILE" | awk '{print $1}')" >> $GITHUB_STEP_SUMMARY
+
+          # Verify it's a valid ISO
+          if echo "$FILE_INFO" | grep -q "ISO 9660"; then
+            echo "Format: Valid ISO 9660 filesystem" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "::error::File is NOT a valid ISO: $FILE_INFO"
+            echo "Format: INVALID - $FILE_INFO" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi
+
+          # Check if bootable
+          if echo "$FILE_INFO" | grep -q "bootable"; then
+            echo "Boot: Bootable (MBR/BIOS)" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "::warning::ISO may not be bootable via legacy BIOS"
+            echo "Boot: No MBR boot flag detected" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          # Check for EFI
+          if echo "$FILE_INFO" | grep -qi "DOS/MBR"; then
+            echo "EFI: UEFI+BIOS hybrid boot supported" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "ISO verification passed" >> $GITHUB_STEP_SUMMARY
 
       - name: Copy ISO to local path
         if: inputs.storage_destination == 'local'
         run: |
+          # Find ISO file (with or without .iso extension)
           ISO_FILE=$(ls ./output/*.iso 2>/dev/null | head -1)
+          if [ -z "$ISO_FILE" ]; then
+            # Fallback: find by file type
+            ISO_FILE=$(file ./output/* 2>/dev/null | grep "ISO 9660" | cut -d: -f1 | head -1)
+          fi
+          # Add .iso extension if missing
+          if [ -n "$ISO_FILE" ] && [[ "$ISO_FILE" != *.iso ]]; then
+            mv "$ISO_FILE" "${ISO_FILE}.iso"
+            ISO_FILE="${ISO_FILE}.iso"
+          fi
           VALIDATE_FILE="./output/validate-golden-image.sh"
 
           if [ -z "$ISO_FILE" ]; then
-            echo "::error::No ISO file found"
+            echo "::error::No ISO file found in ./output/"
+            echo "::error::Contents of output/:"
+            ls -la ./output/ 2>/dev/null || echo "  (empty)"
             exit 1
           fi
 
