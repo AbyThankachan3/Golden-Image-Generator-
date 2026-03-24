@@ -24,9 +24,9 @@ on:
         description: 'Where to save the built ISO'
         required: true
         type: choice
-        default: 'artifact'
+        default: 'local'
         options:
-          - 'artifact'
+          - 'local'
           - 'azure-blob'
           - 's3'
 
@@ -55,7 +55,7 @@ jobs:
   review-cis:
     name: "Review: CIS Hardening Values"
     if: inputs.enable_hardening == true
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     timeout-minutes: 5
 
     steps:
@@ -156,7 +156,7 @@ jobs:
   # ────────────────────────────────────────────────────────────
   analyze:
     name: "Review: Package Analysis"
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     timeout-minutes: 60
 
     steps:
@@ -282,7 +282,7 @@ jobs:
       always() &&
       needs.analyze.result == 'success' &&
       (needs.review-cis.result == 'success' || needs.review-cis.result == 'skipped')
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     timeout-minutes: 120
 
     steps:
@@ -349,21 +349,19 @@ jobs:
           fi
 
       # ── Upload to chosen storage ──────────────────────────
-      - name: Upload ISO as artifact
-        if: inputs.storage_destination == 'artifact'
-        uses: actions/upload-artifact@v4
-        with:
-          name: golden-image-iso
-          path: ./output/*.iso
-          retention-days: 30
-
-      - name: Upload validation script
-        uses: actions/upload-artifact@v4
-        with:
-          name: validation-script
-          path: ./output/validate-golden-image.sh
-          retention-days: 30
-          if-no-files-found: ignore
+      - name: Show local ISO path
+        if: inputs.storage_destination == 'local'
+        run: |
+          ISO_FILE=$(ls ./output/*.iso 2>/dev/null | head -1)
+          REAL_PATH=$(realpath "$ISO_FILE" 2>/dev/null || echo "$ISO_FILE")
+          echo ""
+          echo "══════════════════════════════════════════════════"
+          echo "  ISO saved locally on this runner:"
+          echo "  ${REAL_PATH}"
+          echo ""
+          echo "  Validation script:"
+          echo "  $(realpath ./output/validate-golden-image.sh 2>/dev/null || echo './output/validate-golden-image.sh')"
+          echo "══════════════════════════════════════════════════"
 
       - name: Upload to Azure Blob Storage
         if: inputs.storage_destination == 'azure-blob'
