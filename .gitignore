@@ -1,0 +1,19 @@
+# ISOs (too large for git)
+cache/
+output/*.iso
+
+# macOS
+.DS_Store
+
+# GRUB password hash (secret)
+hardening/secrets/grub-password.hash
+
+# Generated during build
+/tmp/
+*.tmp
+
+# Old files to delete
+hardening/cis/cis-values22.yaml
+hardening/cis/cis-values24.yaml
+configs/overrides-22.04.sh
+configs/overrides-24.04.sh

@@ -1,0 +1,162 @@
+# ══════════════════════════════════════════════════════════════
+# CIS Level 1 Hardening Configuration — Golden Image Builder
+# ══════════════════════════════════════════════════════════════
+#
+# This is the SINGLE SOURCE OF TRUTH for all CIS hardening values.
+# Edit values here — the build generates all config files from this YAML.
+# Static files under hardening/configs/ are used as fallback only when
+# this file is absent.
+#
+# Reference: CIS Ubuntu Linux 22.04/24.04 LTS Benchmark Level 1
+# ══════════════════════════════════════════════════════════════
+
+# ── SSH Hardening ─────────────────────────────────────────────
+ssh:
+  MACs: "umac-128-etm@openssh.com,hmac-sha2-256-etm@openssh.com,hmac-sha2-512-etm@openssh.com,umac-128@openssh.com,hmac-sha2-256,hmac-sha2-512"
+  Ciphers: "aes128-ctr,aes192-ctr,aes256-ctr,aes128-gcm@openssh.com,aes256-gcm@openssh.com"
+  KexAlgorithms: "curve25519-sha256,curve25519-sha256@libssh.org,ecdh-sha2-nistp256,ecdh-sha2-nistp384,ecdh-sha2-nistp521,diffie-hellman-group-exchange-sha256,diffie-hellman-group16-sha512,diffie-hellman-group18-sha512"
+  PermitRootLogin: "no"
+  PasswordAuthentication: "no"
+  PermitEmptyPasswords: "no"
+  X11Forwarding: "no"
+  LoginGraceTime: 60
+  MaxAuthTries: 3
+  MaxSessions: 2
+  AllowTcpForwarding: "no"
+  AllowAgentForwarding: "no"
+  Compression: "no"
+  TCPKeepAlive: "no"
+  ClientAliveCountMax: 2
+  ClientAliveInterval: 300
+  LogLevel: "VERBOSE"
+  Banner: "/etc/issue.net"
+
+# ── Password Policy ───────────────────────────────────────────
+# Config file: hardening/configs/pwquality.conf + chroot edits
+password_policy:
+  PASS_MAX_DAYS: 365
+  PASS_MIN_DAYS: 1
+  PASS_WARN_AGE: 7
+  SHA_CRYPT_MIN_ROUNDS: 65536
+  minlen: 14
+  dcredit: -1       # require 1 digit
+  ucredit: -1       # require 1 uppercase
+  ocredit: -1       # require 1 special char
+  lcredit: -1       # require 1 lowercase
+  maxrepeat: 3      # max consecutive identical chars
+  maxsequence: 3    # max sequential chars (abc, 123)
+  minclass: 4       # require all 4 character classes
+  UMASK: "027"
+
+# ── Session ───────────────────────────────────────────────────
+session:
+  TMOUT: 900        # 15 minute idle timeout (readonly)
+
+# ── Kernel Hardening ──────────────────────────────────────────
+# Config file: hardening/configs/99-hardening-sysctl.conf
+kernel:
+  dmesg_restrict: 1
+  randomize_va_space: 2        # ASLR full
+  kptr_restrict: 2
+  sysrq: 0                    # disable magic SysRq
+  unprivileged_bpf_disabled: 1
+  perf_event_paranoid: 3
+  bpf_jit_harden: 2
+  ldisc_autoload: 0           # CVE prevention
+  protected_fifos: 2
+  suid_dumpable: 0            # disable core dumps for SUID
+
+# ── Network Hardening ─────────────────────────────────────────
+# Config file: hardening/configs/99-hardening-sysctl.conf
+network:
+  accept_redirects: 0         # IPv4 + IPv6
+  send_redirects: 0
+  secure_redirects: 0
+  accept_source_route: 0      # IPv4 + IPv6
+  tcp_syncookies: 1
+  log_martians: 1
+  icmp_echo_ignore_broadcasts: 1
+  icmp_ignore_bogus_error_responses: 1
+  rp_filter: 1                # reverse path filtering
+  ip_forward: 0               # disable unless routing needed
+
+# ── Core Dump Protection ──────────────────────────────────────
+# Config file: hardening/configs/99-coredump.conf
+core_dump:
+  hard_core: 0                # * hard core 0
+
+# ── Services Masked ───────────────────────────────────────────
+# These services are symlinked to /dev/null (disabled)
+services_masked:
+  - avahi-daemon
+  - cups
+  - isc-dhcp-server
+  - slapd
+  - nfs-server
+  - rpcbind
+  - bind9
+  - vsftpd
+  - apache2
+  - dovecot
+  - snmpd
+  - squid
+  - xinetd
+
+# ── Kernel Modules Disabled ───────────────────────────────────
+# Config file: hardening/configs/CIS.conf
+modules_disabled:
+  # Filesystems
+  - cramfs
+  - freevxfs
+  - jffs2
+  - hfs
+  - hfsplus
+  - udf
+  # Network protocols
+  - dccp
+  - sctp
+  - rds
+  - tipc
+  # USB/FireWire
+  - usb-storage
+  - firewire-ohci
+  - firewire-sbp2
+  - firewire-net
+  - thunderbolt
+
+# ── Audit Rules ───────────────────────────────────────────────
+# Config file: hardening/configs/50-cis.rules
+audit:
+  categories:
+    - time-change
+    - identity
+    - system-locale
+    - logins
+    - session
+    - permission-modification
+    - delete
+    - actions
+    - modules
+
+# ── Security Packages Installed ───────────────────────────────
+packages_installed:
+  encryption:
+    - cryptsetup
+    - cryptsetup-initramfs
+    - clevis-luks
+    - clevis-tpm2
+    - clevis-initramfs
+  security:
+    - auditd
+    - fail2ban
+    - rkhunter
+    - aide
+    - libpam-pwquality
+    - libpam-tmpdir
+    - needrestart
+
+# ── GRUB Bootloader ──────────────────────────────────────────
+grub:
+  password_protected: true     # PBKDF2 hash
+  boot_without_password: true  # --unrestricted
+  edit_requires_password: true # superusers="admin"

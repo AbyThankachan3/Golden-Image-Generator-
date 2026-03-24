@@ -1,0 +1,12 @@
+# CIS 5.5 — Sudo hardening
+# Allocate a pseudo-TTY for sudo commands (prevents background execution abuse)
+Defaults use_pty
+
+# Require re-authentication after 15 minutes of inactivity
+Defaults timestamp_timeout=15
+
+# Log sudo commands to a dedicated log file
+Defaults logfile="/var/log/sudo.log"
+
+# Send mail on unauthorized sudo attempts
+Defaults mail_badpass
