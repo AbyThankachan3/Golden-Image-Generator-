@@ -1,8 +1,0 @@
-apt
-binutils
-libx11-6
-pciutils
-perl
-perl-modules-5.34
-policykit-1
-xz-utils
