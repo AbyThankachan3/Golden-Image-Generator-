@@ -86,54 +86,31 @@ jobs:
           fi
 
       - name: Display CIS hardening values
+        shell: bash {0}
         run: |
+          # Helper: extract YAML section and append to summary
+          dump_section() {
+            local title="$1" pattern="$2" filter="${3:-^ }"
+            echo "### ${title}" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            awk "/${pattern}/,/^[a-z_]+:/" cis-config.yml | grep -E "${filter}" | grep -v '^$' | head -30 >> $GITHUB_STEP_SUMMARY || echo "  (no values found)" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+          }
+
           echo "## 🔒 CIS Level 1 Hardening Values" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "Source: \`cis-config.yml\` — edit this file in the repo to customize." >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
           if [ -f cis-config.yml ]; then
-            echo "### SSH Hardening" >> $GITHUB_STEP_SUMMARY
-            echo '```' >> $GITHUB_STEP_SUMMARY
-            awk '/^ssh:/,/^[a-z_]+:/' cis-config.yml | grep '^ ' | grep -v '^$' >> $GITHUB_STEP_SUMMARY
-            echo '```' >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-
-            echo "### Credential Policy" >> $GITHUB_STEP_SUMMARY
-            echo '```' >> $GITHUB_STEP_SUMMARY
-            awk '/^pw_policy:/,/^[a-z_]+:/' cis-config.yml | grep '^ ' | grep -v '^$' >> $GITHUB_STEP_SUMMARY
-            echo '```' >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-
-            echo "### Session" >> $GITHUB_STEP_SUMMARY
-            echo '```' >> $GITHUB_STEP_SUMMARY
-            awk '/^session:/,/^[a-z_]+:/' cis-config.yml | grep '^ ' | grep -v '^$' >> $GITHUB_STEP_SUMMARY
-            echo '```' >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-
-            echo "### Kernel Hardening" >> $GITHUB_STEP_SUMMARY
-            echo '```' >> $GITHUB_STEP_SUMMARY
-            awk '/^kernel:/,/^[a-z_]+:/' cis-config.yml | grep '^ ' | grep -v '^$' >> $GITHUB_STEP_SUMMARY
-            echo '```' >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-
-            echo "### Network Hardening" >> $GITHUB_STEP_SUMMARY
-            echo '```' >> $GITHUB_STEP_SUMMARY
-            awk '/^network:/,/^[a-z_]+:/' cis-config.yml | grep '^ ' | grep -v '^$' >> $GITHUB_STEP_SUMMARY
-            echo '```' >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-
-            echo "### Services Masked (disabled)" >> $GITHUB_STEP_SUMMARY
-            echo '```' >> $GITHUB_STEP_SUMMARY
-            awk '/^services_masked:/,/^[a-z_]+:/' cis-config.yml | grep -E '^ +- ' | head -20 >> $GITHUB_STEP_SUMMARY
-            echo '```' >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-
-            echo "### Kernel Modules Disabled" >> $GITHUB_STEP_SUMMARY
-            echo '```' >> $GITHUB_STEP_SUMMARY
-            awk '/^modules_disabled:/,/^[a-z_]+:/' cis-config.yml | grep -E '^ +- ' | head -20 >> $GITHUB_STEP_SUMMARY
-            echo '```' >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
+            dump_section "SSH Hardening" "^ssh:" "^ "
+            dump_section "Credential Policy" "^pw_policy:" "^ "
+            dump_section "Session" "^session:" "^ "
+            dump_section "Kernel Hardening" "^kernel:" "^ "
+            dump_section "Network Hardening" "^network:" "^ "
+            dump_section "Services Masked (disabled)" "^services_masked:" "^ +- "
+            dump_section "Kernel Modules Disabled" "^modules_disabled:" "^ +- "
 
             echo "### GRUB Bootloader" >> $GITHUB_STEP_SUMMARY
             echo '```' >> $GITHUB_STEP_SUMMARY
@@ -143,10 +120,7 @@ jobs:
             echo '```' >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
 
-            echo "### Security Packages Installed" >> $GITHUB_STEP_SUMMARY
-            echo '```' >> $GITHUB_STEP_SUMMARY
-            awk '/^packages_installed:/,/^[a-z_]+:/' cis-config.yml | grep -E '^ +- ' | head -20 >> $GITHUB_STEP_SUMMARY
-            echo '```' >> $GITHUB_STEP_SUMMARY
+            dump_section "Security Packages Installed" "^packages_installed:" "^ +- "
           else
             echo "⚠️ \`cis-config.yml\` not found — using static defaults from \`hardening/configs/\`" >> $GITHUB_STEP_SUMMARY
           fi
@@ -154,6 +128,7 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "---" >> $GITHUB_STEP_SUMMARY
           echo "> **To customize:** Edit \`cis-config.yml\` in the repo, commit, and re-run." >> $GITHUB_STEP_SUMMARY
+          echo "> **To upload custom files:** Use the repo's **Add file → Upload files** button." >> $GITHUB_STEP_SUMMARY
 
   # ────────────────────────────────────────────────────────────
   #  JOB 1b: ANALYZE PACKAGES
