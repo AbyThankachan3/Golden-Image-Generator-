@@ -33,7 +33,7 @@ ssh:
 
 # ── Password Policy ───────────────────────────────────────────
 # Config file: hardening/configs/pwquality.conf + chroot edits
-password_policy:
+pw_policy:
   PASS_MAX_DAYS: 365
   PASS_MIN_DAYS: 1
   PASS_WARN_AGE: 7

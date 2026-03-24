@@ -159,7 +159,7 @@ generate_configs_from_yaml() {
         local pw_keys="minlen dcredit ucredit ocredit lcredit maxrepeat maxsequence minclass usercheck dictcheck"
         for k in $pw_keys; do
             local v
-            v=$(get_val "password_policy.$k")
+            v=$(get_val "pw_policy.$k")
             [ -n "$v" ] && echo "$k = $v"
         done
     } > "$OUT/pwquality.conf"

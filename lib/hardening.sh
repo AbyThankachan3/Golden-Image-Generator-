@@ -310,11 +310,11 @@ harden_cis_controls() {
     # Read values from cis-config.yml or use defaults
     local PASS_MAX PASS_MIN PASS_WARN UMASK_VAL SHA_ROUNDS TMOUT_VAL
     if type get_val &>/dev/null && [ -f "$CIS_CONFIG" ]; then
-        PASS_MAX=$(get_val "password_policy.PASS_MAX_DAYS")
-        PASS_MIN=$(get_val "password_policy.PASS_MIN_DAYS")
-        PASS_WARN=$(get_val "password_policy.PASS_WARN_AGE")
-        UMASK_VAL=$(get_val "password_policy.UMASK")
-        SHA_ROUNDS=$(get_val "password_policy.SHA_CRYPT_MIN_ROUNDS")
+        PASS_MAX=$(get_val "pw_policy.PASS_MAX_DAYS")
+        PASS_MIN=$(get_val "pw_policy.PASS_MIN_DAYS")
+        PASS_WARN=$(get_val "pw_policy.PASS_WARN_AGE")
+        UMASK_VAL=$(get_val "pw_policy.UMASK")
+        SHA_ROUNDS=$(get_val "pw_policy.SHA_CRYPT_MIN_ROUNDS")
         TMOUT_VAL=$(get_val "session.TMOUT")
     fi
     PASS_MAX="${PASS_MAX:-365}"

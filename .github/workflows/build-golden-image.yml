@@ -88,7 +88,7 @@ jobs:
             # Password Policy
             echo "### Password Policy" >> $GITHUB_STEP_SUMMARY
             echo '```' >> $GITHUB_STEP_SUMMARY
-            awk '/^password_policy:/,/^[a-z_]+:/' cis-config.yml | grep '^ ' | grep -v '^$' >> $GITHUB_STEP_SUMMARY
+            awk '/^pw_policy:/,/^[a-z_]+:/' cis-config.yml | grep '^ ' | grep -v '^$' >> $GITHUB_STEP_SUMMARY
             echo '```' >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
 
@@ -130,9 +130,9 @@ jobs:
             # GRUB
             echo "### GRUB Bootloader" >> $GITHUB_STEP_SUMMARY
             echo '```' >> $GITHUB_STEP_SUMMARY
-            echo "  Password protection: ENABLED (PBKDF2)" >> $GITHUB_STEP_SUMMARY
-            echo "  Boot without password: YES (--unrestricted)" >> $GITHUB_STEP_SUMMARY
-            echo "  Edit GRUB requires password: YES (username: admin)" >> $GITHUB_STEP_SUMMARY
+            echo "  GRUB protection: ENABLED (PBKDF2)" >> $GITHUB_STEP_SUMMARY
+            echo "  Boot without credentials: YES (--unrestricted)" >> $GITHUB_STEP_SUMMARY
+            echo "  Edit GRUB requires credentials: YES (username: admin)" >> $GITHUB_STEP_SUMMARY
             echo '```' >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
 
