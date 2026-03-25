@@ -380,6 +380,8 @@ docker run --rm \
 # Rename output if custom name provided
 ISO_DEFAULT="${OUTPUT_DIR}/golden-ubuntu-minimal-${FULL_VERSION}.iso"
 if [ -n "${OUTPUT_NAME:-}" ] && [ -f "$ISO_DEFAULT" ]; then
+    # Ensure .iso extension
+    [[ "$OUTPUT_NAME" != *.iso ]] && OUTPUT_NAME="${OUTPUT_NAME}.iso"
     mv "$ISO_DEFAULT" "${OUTPUT_DIR}/${OUTPUT_NAME}"
     ISO_FINAL="${OUTPUT_DIR}/${OUTPUT_NAME}"
 else

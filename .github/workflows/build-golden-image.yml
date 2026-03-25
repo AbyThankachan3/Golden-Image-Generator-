@@ -89,29 +89,35 @@ jobs:
       - name: Display CIS hardening values
         shell: bash {0}
         run: |
-          # Helper: extract YAML section and append to summary
+          # Helper: extract YAML section content between two top-level keys
           dump_section() {
-            local title="$1" section="$2" filter="${3:-^  }"
+            local title="$1" section="$2"
             echo "### ${title}" >> $GITHUB_STEP_SUMMARY
             echo '```' >> $GITHUB_STEP_SUMMARY
-            awk "/^${section}:/{found=1; next} found && /^[a-z_]+:/{exit} found && /${filter}/" cis-config.yml | head -30 >> $GITHUB_STEP_SUMMARY || echo "  (no values found)" >> $GITHUB_STEP_SUMMARY
+            # Extract lines between "section:" and next top-level key (non-indented, non-comment)
+            sed -n "/^${section}:/,/^[a-z]/{/^${section}:/d;/^[a-z]/d;p}" cis-config.yml \
+              | grep -v '^$' \
+              | grep -v '^#' \
+              | head -30 >> $GITHUB_STEP_SUMMARY || true
             echo '```' >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
           }
 
-          echo "## 🔒 CIS Level 1 Hardening Values" >> $GITHUB_STEP_SUMMARY
+          echo "## CIS Level 1 Hardening Values" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "Source: \`cis-config.yml\` — edit this file in the repo to customize." >> $GITHUB_STEP_SUMMARY
+          echo "Source: \`cis-config.yml\` -- edit this file in the repo to customize." >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
           if [ -f cis-config.yml ]; then
-            dump_section "SSH Hardening" "ssh" "^  "
-            dump_section "Credential Policy" "pw_policy" "^  "
-            dump_section "Session" "session" "^  "
-            dump_section "Kernel Hardening" "kernel" "^  "
-            dump_section "Network Hardening" "network" "^  "
-            dump_section "Services Masked (disabled)" "services_masked" "^  "
-            dump_section "Kernel Modules Disabled" "modules_disabled" "^  "
+            dump_section "SSH Hardening" "ssh"
+            dump_section "Credential Policy" "pw_policy"
+            dump_section "Session" "session"
+            dump_section "Kernel Hardening" "kernel"
+            dump_section "Network Hardening" "network"
+            dump_section "Core Dump Protection" "core_dump"
+            dump_section "Services Masked (disabled)" "services_masked"
+            dump_section "Kernel Modules Disabled" "modules_disabled"
+            dump_section "Audit Rules" "audit"
 
             echo "### GRUB Bootloader" >> $GITHUB_STEP_SUMMARY
             echo '```' >> $GITHUB_STEP_SUMMARY
@@ -121,15 +127,15 @@ jobs:
             echo '```' >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
 
-            dump_section "Security Packages Installed" "packages_installed" "^  "
+            dump_section "Security Packages Installed" "packages_installed"
           else
-            echo "⚠️ \`cis-config.yml\` not found — using static defaults from \`hardening/configs/\`" >> $GITHUB_STEP_SUMMARY
+            echo "cis-config.yml not found -- using static defaults from hardening/configs/" >> $GITHUB_STEP_SUMMARY
           fi
 
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "---" >> $GITHUB_STEP_SUMMARY
           echo "> **To customize:** Edit \`cis-config.yml\` in the repo, commit, and re-run." >> $GITHUB_STEP_SUMMARY
-          echo "> **To upload custom files:** Use the repo's **Add file → Upload files** button." >> $GITHUB_STEP_SUMMARY
+          echo "> **To upload custom files:** Use the repo's **Add file -> Upload files** button." >> $GITHUB_STEP_SUMMARY
 
   # ────────────────────────────────────────────────────────────
   #  JOB 1b: ANALYZE PACKAGES
@@ -156,10 +162,11 @@ jobs:
 
       - name: Run package analysis
         run: |
+          mkdir -p $HOME/GoldenImages/cache
           ./golden-image-builder.sh \
             --analyze-only \
             --output-dir ./output \
-            --cache-dir ./cache \
+            --cache-dir $HOME/GoldenImages/cache \
             --url "${{ inputs.iso_url }}"
 
       - name: Display packages for review
@@ -337,7 +344,8 @@ jobs:
 
       - name: Build golden image
         run: |
-          ARGS="--auto-approve --output-dir ./output --cache-dir ./cache"
+          mkdir -p $HOME/GoldenImages/cache
+          ARGS="--auto-approve --output-dir ./output --cache-dir $HOME/GoldenImages/cache"
           ARGS="${ARGS} --packages-file ./output/approved-packages.txt"
 
           if [ "${{ inputs.enable_hardening }}" = "true" ]; then
