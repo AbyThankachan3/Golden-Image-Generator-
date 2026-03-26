@@ -199,7 +199,7 @@ jobs:
             echo '```' >> $GITHUB_STEP_SUMMARY
             echo "</details>" >> $GITHUB_STEP_SUMMARY
           else
-            echo "⚠️ Analysis produced no results. Check the logs above." >> $GITHUB_STEP_SUMMARY
+            echo " Analysis produced no results. Check the logs above." >> $GITHUB_STEP_SUMMARY
           fi
 
           echo "" >> $GITHUB_STEP_SUMMARY
@@ -209,7 +209,7 @@ jobs:
           VERSION="${VERSION:-unknown}"
 
           if [ "${{ inputs.mode }}" = "analyze-only" ]; then
-            echo "## ⏸️ Analyze Only Mode" >> $GITHUB_STEP_SUMMARY
+            echo "## Analyze Only Mode" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "Build was **not started**. To build the ISO:" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
@@ -304,23 +304,23 @@ jobs:
           # 5. Safe packages from current analysis job
           FOUND=""
           if [ -f "${LOCAL_DIR}/approved-packages-${VERSION}.txt" ]; then
-            echo "✅ Using ${LOCAL_DIR}/approved-packages-${VERSION}.txt"
+            echo "Using ${LOCAL_DIR}/approved-packages-${VERSION}.txt"
             cp "${LOCAL_DIR}/approved-packages-${VERSION}.txt" ./output/approved-packages.txt
             FOUND=1
           elif [ -f "${LOCAL_DIR}/safe-packages-${VERSION}.txt" ]; then
-            echo "✅ Using ${LOCAL_DIR}/safe-packages-${VERSION}.txt (from previous analysis)"
+            echo "Using ${LOCAL_DIR}/safe-packages-${VERSION}.txt (from previous analysis)"
             cp "${LOCAL_DIR}/safe-packages-${VERSION}.txt" ./output/approved-packages.txt
             FOUND=1
           elif [ -f "./approved-packages-${VERSION}.txt" ]; then
-            echo "✅ Using approved-packages-${VERSION}.txt from repo"
+            echo "Using approved-packages-${VERSION}.txt from repo"
             cp "./approved-packages-${VERSION}.txt" ./output/approved-packages.txt
             FOUND=1
           elif [ -f ./approved-packages.txt ]; then
-            echo "✅ Using approved-packages.txt from repo"
+            echo "Using approved-packages.txt from repo"
             cp ./approved-packages.txt ./output/approved-packages.txt
             FOUND=1
           elif [ -f ./output/safe-packages.txt ]; then
-            echo "✅ Using auto-detected safe packages from analysis"
+            echo "Using auto-detected safe packages from analysis"
             cp ./output/safe-packages.txt ./output/approved-packages.txt
             FOUND=1
           fi
@@ -482,7 +482,7 @@ jobs:
       - name: Build summary
         if: always()
         run: |
-          echo "## 🏗️ Golden Image Build Results" >> $GITHUB_STEP_SUMMARY
+          echo "## Golden Image Build Results" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
           ISO_FILE=$(ls ./output/*.iso 2>/dev/null | head -1)
@@ -511,6 +511,6 @@ jobs:
             echo "2. Install Ubuntu" >> $GITHUB_STEP_SUMMARY
             echo "3. Run validation: \`sudo bash validate-golden-image.sh\`" >> $GITHUB_STEP_SUMMARY
           else
-            echo "### ❌ Build Failed" >> $GITHUB_STEP_SUMMARY
+            echo "### Build Failed" >> $GITHUB_STEP_SUMMARY
             echo "No ISO produced. Check build logs for errors." >> $GITHUB_STEP_SUMMARY
           fi
