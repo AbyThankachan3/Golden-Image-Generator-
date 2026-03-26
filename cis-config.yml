@@ -90,6 +90,7 @@ core_dump:
 services_masked:
   - avahi-daemon
   - cups
+  - udisks2
   - isc-dhcp-server
   - slapd
   - nfs-server
