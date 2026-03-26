@@ -89,15 +89,13 @@ jobs:
       - name: Display CIS hardening values
         shell: bash {0}
         run: |
-          # Helper: extract YAML section content between two top-level keys
+          # Helper: extract YAML section content using awk
           dump_section() {
             local title="$1" section="$2"
             echo "### ${title}" >> $GITHUB_STEP_SUMMARY
             echo '```' >> $GITHUB_STEP_SUMMARY
-            # Extract lines between "section:" and next top-level key (non-indented, non-comment)
-            sed -n "/^${section}:/,/^[a-z]/{/^${section}:/d;/^[a-z]/d;p}" cis-config.yml \
+            awk "/^${section}:/{f=1;next} f && /^[a-z_]+:/{exit} f && /^  /" cis-config.yml \
               | grep -v '^$' \
-              | grep -v '^#' \
               | head -30 >> $GITHUB_STEP_SUMMARY || true
             echo '```' >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
