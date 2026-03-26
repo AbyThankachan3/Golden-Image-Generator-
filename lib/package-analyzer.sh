@@ -162,7 +162,7 @@ build_critical_set() {
     # Layer 7b: Pattern-based protection — never remove packages matching these patterns
     # Any package with "systemd" in its name is critical (systemd-resolved, libnss-systemd, etc.)
     local pattern_count=0
-    local CRITICAL_PATTERNS=("systemd" "libnss-" "libpam-" "grub-" "linux-" "curl" "wget" "lshw" "openssh" "sudo" "perl" "needrestart")
+    local CRITICAL_PATTERNS=("systemd" "libnss-" "libpam-" "grub-" "linux-" "curl" "wget" "lshw" "openssh" "sudo" "perl" "needrestart" "coreutils" "busybox" "zstd" "ubuntu-server" "ubuntu-minimal" "dpkg" "apt" "bash" "cron" "logrotate" "rsyslog")
     while IFS= read -r pkg; do
         [ -z "$pkg" ] && continue
         [ -n "${CRITICAL_PKGS[$pkg]+x}" ] && continue  # already marked
