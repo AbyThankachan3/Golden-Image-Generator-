@@ -294,42 +294,34 @@ jobs:
           LOCAL_DIR="${{ inputs.output_path }}"
           LOCAL_DIR="${LOCAL_DIR:-$HOME/GoldenImages}"
 
-          # Search order:
-          # 1. Versioned approved file in local dir (user edited after analyze)
-          # 2. Versioned safe file in local dir (from previous analyze run)
-          # 3. Versioned file in repo root (user uploaded)
-          # 4. Plain name in repo root
-          # 5. Safe packages from current analysis job
+          # Search order (always versioned):
+          # 1. Repo root: approved-packages-{VERSION}.txt (user pushed)
+          # 2. Local: ~/GoldenImages/approved-packages-{VERSION}.txt (user edited after analyze)
+          # 3. Local: ~/GoldenImages/safe-packages-{VERSION}.txt (auto from analyze run)
+          # 4. FAIL
           FOUND=""
-          if [ -f "${LOCAL_DIR}/approved-packages-${VERSION}.txt" ]; then
-            echo "Using ${LOCAL_DIR}/approved-packages-${VERSION}.txt"
+          if [ -f "./approved-packages-${VERSION}.txt" ]; then
+            echo "✅ Using approved-packages-${VERSION}.txt from repo"
+            cp "./approved-packages-${VERSION}.txt" ./output/approved-packages.txt
+            FOUND=1
+          elif [ -f "${LOCAL_DIR}/approved-packages-${VERSION}.txt" ]; then
+            echo "✅ Using ${LOCAL_DIR}/approved-packages-${VERSION}.txt"
             cp "${LOCAL_DIR}/approved-packages-${VERSION}.txt" ./output/approved-packages.txt
             FOUND=1
           elif [ -f "${LOCAL_DIR}/safe-packages-${VERSION}.txt" ]; then
-            echo "Using ${LOCAL_DIR}/safe-packages-${VERSION}.txt (from previous analysis)"
+            echo "✅ Using ${LOCAL_DIR}/safe-packages-${VERSION}.txt (from previous analysis)"
             cp "${LOCAL_DIR}/safe-packages-${VERSION}.txt" ./output/approved-packages.txt
-            FOUND=1
-          elif [ -f "./approved-packages-${VERSION}.txt" ]; then
-            echo "Using approved-packages-${VERSION}.txt from repo"
-            cp "./approved-packages-${VERSION}.txt" ./output/approved-packages.txt
-            FOUND=1
-          elif [ -f ./approved-packages.txt ]; then
-            echo "Using approved-packages.txt from repo"
-            cp ./approved-packages.txt ./output/approved-packages.txt
-            FOUND=1
-          elif [ -f ./output/safe-packages.txt ]; then
-            echo "Using auto-detected safe packages from analysis"
-            cp ./output/safe-packages.txt ./output/approved-packages.txt
             FOUND=1
           fi
 
           if [ -z "$FOUND" ]; then
-            echo "::error::No package list found. Searched:"
-            echo "::error::  ${LOCAL_DIR}/approved-packages-${VERSION}.txt"
-            echo "::error::  ${LOCAL_DIR}/safe-packages-${VERSION}.txt"
-            echo "::error::  ./approved-packages-${VERSION}.txt (repo)"
-            echo "::error::  ./approved-packages.txt (repo)"
-            echo "::error::Run analyze-only first to generate the package list."
+            echo "::error::No approved-packages-${VERSION}.txt found."
+            echo "::error::Searched:"
+            echo "::error::  ./approved-packages-${VERSION}.txt (repo root)"
+            echo "::error::  ${LOCAL_DIR}/approved-packages-${VERSION}.txt (local)"
+            echo "::error::  ${LOCAL_DIR}/safe-packages-${VERSION}.txt (from analyze)"
+            echo "::error::"
+            echo "::error::Run analyze-only first, or push approved-packages-${VERSION}.txt to the repo."
             exit 1
           fi
           echo "Packages to remove: $(wc -l < ./output/approved-packages.txt | tr -d ' ')"
