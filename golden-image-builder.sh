@@ -224,7 +224,7 @@ if [ -n "$PACKAGES_FILE" ]; then
 
     echo ""
     banner "BUILD COMPLETE"
-    echo -e "  ${GREEN}✅ ISO: ${OUTPUT_DIR}/golden-ubuntu-minimal-${FULL_VERSION}.iso${NC}"
+    echo -e "  ${GREEN} ISO: ${OUTPUT_DIR}/golden-ubuntu-minimal-${FULL_VERSION}.iso${NC}"
     exit 0
 fi
 
