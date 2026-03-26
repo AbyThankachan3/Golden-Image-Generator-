@@ -207,6 +207,21 @@ fi
 apt-get clean 2>/dev/null
 rm -rf /var/lib/apt/lists/* /tmp/*.deb 2>/dev/null
 
+# ── Purge stale dpkg entries ──
+# Packages removed from squashfs leave ghost entries in /var/lib/dpkg/status
+# marked as "deinstall" or "purge". These cause "files list file missing" warnings
+# when apt runs on the installed system. Clean them here.
+STALE_PKGS=\$(dpkg --get-selections 2>/dev/null | grep -E "deinstall|purge" | awk '{print \$1}')
+if [ -n "\$STALE_PKGS" ]; then
+    STALE_COUNT=\$(echo "\$STALE_PKGS" | wc -l | tr -d ' ')
+    dpkg --purge \$STALE_PKGS 2>/dev/null || true
+    # Also remove any orphaned .list files in /var/lib/dpkg/info/
+    for pkg in \$STALE_PKGS; do
+        rm -f /var/lib/dpkg/info/\${pkg}.* 2>/dev/null
+    done
+    echo -e "  ${GREEN}✔${NC}  Cleaned \${STALE_COUNT} stale dpkg entries (no warnings on installed system)"
+fi
+
 FINAL_COUNT=$(dpkg-query -f '${Status}\n' -W 2>/dev/null | grep -c "install ok installed")
 echo -e "\n  ${GREEN}✔  Final package count: $FINAL_COUNT${NC}"
 CHROOT_REMOVAL

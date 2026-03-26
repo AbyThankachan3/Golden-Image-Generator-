@@ -206,11 +206,25 @@ echo -e "  ╚══════════════════════
 echo ""
 echo "  Original ISO : $ORIG_SIZE"
 echo "  Custom ISO   : $CUSTOM_SIZE"
+
+# Verify ISO is valid and bootable
+ISO_CHECK=$(file "/output/$CUSTOM_ISO" 2>/dev/null || echo "unknown")
+if echo "$ISO_CHECK" | grep -q "ISO 9660"; then
+    echo -e "  ISO type     : ${GREEN} Valid ISO 9660 filesystem${NC}"
+    if echo "$ISO_CHECK" | grep -q "bootable"; then
+        echo -e "  Bootable     : ${GREEN} Yes (MBR boot sector detected)${NC}"
+    else
+        echo -e "  Bootable     : ⚠️  MBR boot flag not detected (UEFI-only?)"
+    fi
+else
+    echo -e "  ${RED}ISO type     : ❌ NOT a valid ISO — build may have failed${NC}"
+fi
+
 echo ""
 echo "  Boot support : BIOS (Legacy) + UEFI"
 echo "  SSH          : openssh-server present"
 echo "  cloud-init   : bare metal config (no datasource wait)"
 echo "  pool/dists   : intact (Canonical signatures valid)"
 echo ""
-echo -e "${GREEN}  ✅ ISO: /output/$CUSTOM_ISO${NC}"
-echo -e "${GREEN}  ✅ Validation: /output/validate-golden-image.sh${NC}"
+echo -e "${GREEN}  ISO: /output/$CUSTOM_ISO${NC}"
+echo -e "${GREEN}  Validation: /output/validate-golden-image.sh${NC}"

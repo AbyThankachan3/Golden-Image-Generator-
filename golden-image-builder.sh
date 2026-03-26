@@ -390,8 +390,8 @@ fi
 
 echo ""
 banner "BUILD COMPLETE"
-echo -e "  ${GREEN}✅ ISO:        ${ISO_FINAL}${NC}"
-echo -e "  ${GREEN}✅ Validation: ${OUTPUT_DIR}/validate-golden-image.sh${NC}"
+echo -e "  ${GREEN} ISO:        ${ISO_FINAL}${NC}"
+echo -e "  ${GREEN} Validation: ${OUTPUT_DIR}/validate-golden-image.sh${NC}"
 echo ""
 echo "  To validate after installing:"
 echo "    scp ${OUTPUT_DIR}/validate-golden-image.sh user@vm:~/"
