@@ -293,35 +293,48 @@ jobs:
           VERSION="${VERSION:-unknown}"
           LOCAL_DIR="${{ inputs.output_path }}"
           LOCAL_DIR="${LOCAL_DIR:-$HOME/GoldenImages}"
+          MODE="${{ inputs.mode }}"
 
-          # Search order (always versioned):
-          # 1. Repo root: approved-packages-{VERSION}.txt (user pushed)
-          # 2. Local: ~/GoldenImages/approved-packages-{VERSION}.txt (user edited after analyze)
-          # 3. Local: ~/GoldenImages/safe-packages-{VERSION}.txt (auto from analyze run)
-          # 4. FAIL
           FOUND=""
-          if [ -f "./approved-packages-${VERSION}.txt" ]; then
-            echo "✅ Using approved-packages-${VERSION}.txt from repo"
-            cp "./approved-packages-${VERSION}.txt" ./output/approved-packages.txt
-            FOUND=1
-          elif [ -f "${LOCAL_DIR}/approved-packages-${VERSION}.txt" ]; then
-            echo "✅ Using ${LOCAL_DIR}/approved-packages-${VERSION}.txt"
-            cp "${LOCAL_DIR}/approved-packages-${VERSION}.txt" ./output/approved-packages.txt
-            FOUND=1
-          elif [ -f "${LOCAL_DIR}/safe-packages-${VERSION}.txt" ]; then
-            echo "✅ Using ${LOCAL_DIR}/safe-packages-${VERSION}.txt (from previous analysis)"
-            cp "${LOCAL_DIR}/safe-packages-${VERSION}.txt" ./output/approved-packages.txt
-            FOUND=1
+
+          if [ "$MODE" = "analyze-and-build" ]; then
+            # In analyze-and-build: use artifact from analyze job of THIS run
+            if [ -f "./output/safe-packages-${VERSION}.txt" ]; then
+              echo "✅ Using safe-packages-${VERSION}.txt from analyze job (this run)"
+              cp "./output/safe-packages-${VERSION}.txt" ./output/approved-packages.txt
+              FOUND=1
+            elif [ -f "./output/safe-packages.txt" ]; then
+              echo "✅ Using safe-packages.txt from analyze job (this run)"
+              cp "./output/safe-packages.txt" ./output/approved-packages.txt
+              FOUND=1
+            fi
+          fi
+
+          if [ -z "$FOUND" ] && [ "$MODE" = "build-only" ]; then
+            # In build-only: check repo root first, then local persistent dir
+            # 1. Repo root (user pushed)
+            if [ -f "./approved-packages-${VERSION}.txt" ]; then
+              echo "✅ Using approved-packages-${VERSION}.txt from repo"
+              cp "./approved-packages-${VERSION}.txt" ./output/approved-packages.txt
+              FOUND=1
+            # 2. Local persistent dir (user edited after analyze)
+            elif [ -f "${LOCAL_DIR}/approved-packages-${VERSION}.txt" ]; then
+              echo "✅ Using ${LOCAL_DIR}/approved-packages-${VERSION}.txt"
+              cp "${LOCAL_DIR}/approved-packages-${VERSION}.txt" ./output/approved-packages.txt
+              FOUND=1
+            fi
           fi
 
           if [ -z "$FOUND" ]; then
-            echo "::error::No approved-packages-${VERSION}.txt found."
-            echo "::error::Searched:"
-            echo "::error::  ./approved-packages-${VERSION}.txt (repo root)"
-            echo "::error::  ${LOCAL_DIR}/approved-packages-${VERSION}.txt (local)"
-            echo "::error::  ${LOCAL_DIR}/safe-packages-${VERSION}.txt (from analyze)"
-            echo "::error::"
-            echo "::error::Run analyze-only first, or push approved-packages-${VERSION}.txt to the repo."
+            echo "::error::No package list found for version ${VERSION}."
+            if [ "$MODE" = "build-only" ]; then
+              echo "::error::For build-only, provide one of:"
+              echo "::error::  1. Push approved-packages-${VERSION}.txt to repo root"
+              echo "::error::  2. Place at ${LOCAL_DIR}/approved-packages-${VERSION}.txt"
+              echo "::error::Or run analyze-only first."
+            else
+              echo "::error::Analyze job did not produce a package list."
+            fi
             exit 1
           fi
           echo "Packages to remove: $(wc -l < ./output/approved-packages.txt | tr -d ' ')"
