@@ -617,6 +617,12 @@ All package removal, hardening, and CIS benchmarking modifications described abo
 
 ---
 
+## Documentation
+
+Find the detailed documentation at: [GoldenImage](https://www.notion.so/Golden-Image-Admin-Server-32f2f2e2f62a8082a5e6ed4bc30919e4?source=copy_link)
+
+---
+
 ## License
 
 This project is for internal use only.
