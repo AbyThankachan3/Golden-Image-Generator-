@@ -393,6 +393,14 @@ banner "BUILD COMPLETE"
 echo -e "  ${GREEN} ISO:        ${ISO_FINAL}${NC}"
 echo -e "  ${GREEN} Validation: ${OUTPUT_DIR}/validate-golden-image.sh${NC}"
 echo ""
+
+# Bootable check
+if file "${ISO_FINAL}" | grep -q "(bootable)"; then
+    echo -e "  ${GREEN} Bootable:   YES ✓${NC}"
+else
+    echo -e "  ${RED} Bootable:   NO ✗ — ISO may not boot correctly!${NC}"
+fi
+
 echo "  To validate after installing:"
 echo "    scp ${OUTPUT_DIR}/validate-golden-image.sh user@vm:~/"
 echo "    ssh user@vm 'sudo bash ~/validate-golden-image.sh'"
