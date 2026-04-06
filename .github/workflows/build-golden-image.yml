@@ -399,11 +399,11 @@ jobs:
           if [ "$MODE" = "analyze-and-build" ]; then
             # In analyze-and-build: use artifact from analyze job of THIS run
             if [ -f "./output/safe-packages-${VERSION}.txt" ]; then
-              echo "✅ Using safe-packages-${VERSION}.txt from analyze job (this run)"
+              echo "Using safe-packages-${VERSION}.txt from analyze job (this run)"
               cp "./output/safe-packages-${VERSION}.txt" ./output/approved-packages.txt
               FOUND=1
             elif [ -f "./output/safe-packages.txt" ]; then
-              echo "✅ Using safe-packages.txt from analyze job (this run)"
+              echo "Using safe-packages.txt from analyze job (this run)"
               cp "./output/safe-packages.txt" ./output/approved-packages.txt
               FOUND=1
             fi
@@ -413,12 +413,12 @@ jobs:
             # In build-only: check approved-lists/ folder first, then local persistent dir
             # 1. Repo: approved-lists/ folder (user pushed)
             if [ -f "./approved-lists/approved-packages-${VERSION}.txt" ]; then
-              echo "✅ Using approved-lists/approved-packages-${VERSION}.txt from repo"
+              echo "Using approved-lists/approved-packages-${VERSION}.txt from repo"
               cp "./approved-lists/approved-packages-${VERSION}.txt" ./output/approved-packages.txt
               FOUND=1
             # 2. Local persistent dir (user edited after analyze)
             elif [ -f "${LOCAL_DIR}/approved-packages-${VERSION}.txt" ]; then
-              echo "✅ Using ${LOCAL_DIR}/approved-packages-${VERSION}.txt"
+              echo "Using ${LOCAL_DIR}/approved-packages-${VERSION}.txt"
               cp "${LOCAL_DIR}/approved-packages-${VERSION}.txt" ./output/approved-packages.txt
               FOUND=1
             fi

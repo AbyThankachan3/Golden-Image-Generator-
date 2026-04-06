@@ -83,16 +83,17 @@ deb_packages:
 services_enabled:
   - docker
 
-# ── Packages to Hold ─────────────────────────────────────────
-# Prevents these packages from being upgraded/removed by apt
-# Useful for pinning Kubernetes component versions
-packages_hold:
-  - kubeadm
-  - kubectl
-  - kubelet
-  - kubernetes-cni
-  - cri-tools
+# ── Packages to Hold (optional) ──────────────────────────────
+# Prevents apt from upgrading/removing these packages.
+# Only works for apt-managed packages (not binary downloads).
+# Uncomment and add packages if you install k8s via apt:
+# packages_hold:
+#   - kubeadm
+#   - kubectl
+#   - kubelet
+#   - kubernetes-cni
+#   - cri-tools
 
-# ── NOTE: User group assignment (e.g., adding user to docker group)
-# cannot be done at build time — user doesn't exist in the squashfs.
-# After installation, run: sudo usermod -aG docker $USER
+# ── NOTE: User group assignment (e.g., docker group) must be done
+# post-install since the user doesn't exist in the squashfs:
+#   sudo usermod -aG docker $USER
