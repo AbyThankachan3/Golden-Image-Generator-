@@ -28,7 +28,7 @@ _get_block_field() {
     awk -v sec="$section" -v idx="$index" -v fld="$field" '
         /^[a-z_]+:/ { cs = $0; gsub(/:.*/, "", cs); block_count = 0 }
         cs == sec && /^  - name:/ { block_count++ }
-        cs == sec && block_count == idx && $0 ~ "^    " fld ":" {
+        cs == sec && block_count == idx && ($0 ~ "^    " fld ":" || $0 ~ "^  - " fld ":") {
             v = $0
             gsub(/^[^:]+:[[:space:]]*/, "", v)
             gsub(/^"/, "", v); gsub(/"$/, "", v)

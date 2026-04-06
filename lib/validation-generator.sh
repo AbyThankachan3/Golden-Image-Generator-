@@ -552,11 +552,12 @@ HOLDEOF
             while IFS= read -r name; do
                 [ -z "$name" ] && continue
                 cat >> "$OUTPUT" << DEBEOF
-# Check if $name tools are available
-if command -v "$name" &>/dev/null; then
-    pass "$name tools available"
+# Check if $name packages are installed
+DEB_INSTALLED=\$(dpkg -l 2>/dev/null | grep -i "$name" | grep "^ii" | awk '{print \$2}' | head -5)
+if [ -n "\$DEB_INSTALLED" ]; then
+    pass "$name packages installed: \$DEB_INSTALLED"
 else
-    warn "$name tools not found in PATH (may need specific binary check)"
+    fail "$name packages NOT installed"
 fi
 DEBEOF
             done <<< "$deb_names"
