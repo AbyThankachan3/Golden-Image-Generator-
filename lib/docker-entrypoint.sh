@@ -31,7 +31,7 @@ echo ""
 # ── Install required tools ────────────────────────────────
 step 1 "Installing Required Tools"
 apt-get update -qq 2>/dev/null
-apt-get install -y -qq xorriso squashfs-tools rsync file fdisk python3 >/dev/null 2>&1
+apt-get install -y -qq xorriso squashfs-tools rsync file fdisk python3 curl ca-certificates >/dev/null 2>&1
 log "Tools installed"
 
 # ── Mount & extract ISO ──────────────────────────────────

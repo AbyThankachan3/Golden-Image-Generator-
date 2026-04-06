@@ -138,7 +138,7 @@ GoldenImageProject/
 │
 ├── hardening/                       # Static hardening config files (fallback)
 │   ├── configs/
-│   │   ├── 99-hardening-ssh.conf    # SSH server hardening
+│   │   ├── 00-hardening-ssh.conf    # SSH server hardening
 │   │   ├── 99-hardening-sysctl.conf # Kernel/network sysctl values
 │   │   ├── 99-coredump.conf         # Core dump disable
 │   │   ├── CIS.conf                 # Kernel module blacklist
@@ -445,7 +445,7 @@ Config files written directly into the squashfs:
 
 | Config File | What it does |
 |-------------|-------------|
-| `sshd_config.d/99-hardening-ssh.conf` | Restricts ciphers, MACs, disables root login, TCP forwarding |
+| `sshd_config.d/00-hardening-ssh.conf` | Restricts ciphers, MACs, disables root login, TCP forwarding |
 | `sysctl.d/99-hardening-sysctl.conf` | ASLR, dmesg restrict, ICMP hardening, SYN cookies |
 | `security/limits.d/99-coredump.conf` | Disables core dumps |
 | `modprobe.d/CIS.conf` | Blacklists 13 unnecessary kernel modules |

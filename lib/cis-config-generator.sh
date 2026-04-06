@@ -84,7 +84,7 @@ generate_configs_from_yaml() {
             v=$(get_val "ssh.$k")
             [ -n "$v" ] && echo "$k $v"
         done
-    } > "$OUT/99-hardening-ssh.conf"
+    } > "$OUT/00-hardening-ssh.conf"
 
     # ── Sysctl config ─────────────────────────────────────
     {

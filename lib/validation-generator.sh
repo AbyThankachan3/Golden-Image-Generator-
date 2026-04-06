@@ -157,16 +157,16 @@ REMOVED_SECTION
 header "SECTION D: HARDENING CHECKS"
 
 echo ""; echo -e "  ${BOLD}D1. SSH Hardening Config${NC}"
-if [ -f /etc/ssh/sshd_config.d/99-hardening-ssh.conf ]; then
-    pass "SSH hardening config present (/etc/ssh/sshd_config.d/99-hardening-ssh.conf)"
-    if grep -q "MACs" /etc/ssh/sshd_config.d/99-hardening-ssh.conf 2>/dev/null; then
+if [ -f /etc/ssh/sshd_config.d/00-hardening-ssh.conf ]; then
+    pass "SSH hardening config present (/etc/ssh/sshd_config.d/00-hardening-ssh.conf)"
+    if grep -q "MACs" /etc/ssh/sshd_config.d/00-hardening-ssh.conf 2>/dev/null; then
         pass "SSH MACs hardening configured"
     else
         warn "SSH MACs not found in hardening config"
     fi
 else
     warn "SSH hardening config not found"
-    rec "SSH hardening config should be at /etc/ssh/sshd_config.d/99-hardening-ssh.conf"
+    rec "SSH hardening config should be at /etc/ssh/sshd_config.d/00-hardening-ssh.conf"
 fi
 
 echo ""; echo -e "  ${BOLD}D2. Sysctl Hardening${NC}"
@@ -221,11 +221,19 @@ echo ""; echo -e "  ${BOLD}B1. SSH Hardening${NC}"
 check_ssh() {
     local setting="$1" expected="$2" label="$3"
     local value=""
+    # sshd -T shows the EFFECTIVE config (all files merged) — most reliable
     if command -v sshd &>/dev/null; then
         value=$(sshd -T 2>/dev/null | grep -i "^${setting} " | awk '{print $2}' | head -1)
     fi
+    # Fallback: read config files manually (drop-ins override main config)
     if [ -z "$value" ]; then
-        for conf in /etc/ssh/sshd_config /etc/ssh/sshd_config.d/*.conf; do
+        # Read main config first
+        if [ -f /etc/ssh/sshd_config ]; then
+            local v=$(grep -i "^${setting}" /etc/ssh/sshd_config 2>/dev/null | tail -1 | awk '{print $2}')
+            [ -n "$v" ] && value="$v"
+        fi
+        # Drop-in configs override main — read last (highest number wins)
+        for conf in /etc/ssh/sshd_config.d/*.conf; do
             [ -f "$conf" ] || continue
             local v=$(grep -i "^${setting}" "$conf" 2>/dev/null | tail -1 | awk '{print $2}')
             [ -n "$v" ] && value="$v"
@@ -240,7 +248,7 @@ check_ssh "PermitRootLogin" "no" "PermitRootLogin"
 check_ssh "PasswordAuthentication" "no" "PasswordAuthentication"
 check_ssh "PermitEmptyPasswords" "no" "PermitEmptyPasswords"
 check_ssh "X11Forwarding" "no" "X11Forwarding"
-check_ssh "MaxAuthTries" "4" "MaxAuthTries"
+check_ssh "MaxAuthTries" "3" "MaxAuthTries"
 
 echo ""; echo -e "  ${BOLD}B2. Firewall Status${NC}"
 if command -v ufw &>/dev/null && ufw status 2>/dev/null | grep -qi "active"; then

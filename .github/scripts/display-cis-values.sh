@@ -14,9 +14,9 @@ echo "╚═══════════════════════�
 echo ""
 
 # ── SSH Hardening ──────────────────────────────────────────────
-echo "::group::SSH Hardening (hardening/configs/99-hardening-ssh.conf)"
-if [ -f "${HARDENING_DIR}/99-hardening-ssh.conf" ]; then
-    grep -v '^#' "${HARDENING_DIR}/99-hardening-ssh.conf" | grep -v '^$' | while IFS= read -r line; do
+echo "::group::SSH Hardening (hardening/configs/00-hardening-ssh.conf)"
+if [ -f "${HARDENING_DIR}/00-hardening-ssh.conf" ]; then
+    grep -v '^#' "${HARDENING_DIR}/00-hardening-ssh.conf" | grep -v '^$' | while IFS= read -r line; do
         echo "  $line"
     done
 else

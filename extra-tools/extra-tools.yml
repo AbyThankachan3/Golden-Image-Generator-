@@ -93,8 +93,6 @@ packages_hold:
   - kubernetes-cni
   - cri-tools
 
-# ── User Groups ──────────────────────────────────────────────
-# Add the default user to these groups on first boot
-# (applied via cloud-init or first-boot script since user doesn't exist in squashfs)
-user_groups:
-  - docker
+# ── NOTE: User group assignment (e.g., adding user to docker group)
+# cannot be done at build time — user doesn't exist in the squashfs.
+# After installation, run: sudo usermod -aG docker $USER

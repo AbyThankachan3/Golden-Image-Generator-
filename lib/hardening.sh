@@ -124,11 +124,11 @@ harden_write_configs() {
     fi
 
     # ── SSH hardening (all 13 Lynis SSH-7408 findings) ────
-    local SSH_CONF="$CONFIG_SRC/99-hardening-ssh.conf"
+    local SSH_CONF="$CONFIG_SRC/00-hardening-ssh.conf"
     if [ -f "$SSH_CONF" ]; then
         mkdir -p "$ROOT/etc/ssh/sshd_config.d"
-        cp "$SSH_CONF" "$ROOT/etc/ssh/sshd_config.d/99-hardening-ssh.conf"
-        chmod 600 "$ROOT/etc/ssh/sshd_config.d/99-hardening-ssh.conf"
+        cp "$SSH_CONF" "$ROOT/etc/ssh/sshd_config.d/00-hardening-ssh.conf"
+        chmod 600 "$ROOT/etc/ssh/sshd_config.d/00-hardening-ssh.conf"
         # Also tighten sshd_config permissions
         chmod 600 "$ROOT/etc/ssh/sshd_config" 2>/dev/null || true
         log "SSH hardening config installed (13 settings)"
