@@ -31,8 +31,9 @@ _get_block_field() {
         cs == sec && block_count == idx && ($0 ~ "^    " fld ":" || $0 ~ "^  - " fld ":") {
             v = $0
             gsub(/^[^:]+:[[:space:]]*/, "", v)
-            gsub(/^"/, "", v); gsub(/"$/, "", v)
-            gsub(/^'\''/, "", v); gsub(/'\''$/, "", v)
+            # Strip matching outer quotes only (dont break internal quotes)
+            if (v ~ /^".*"$/) { sub(/^"/, "", v); sub(/"$/, "", v) }
+            else if (v ~ /^'\''.*'\''$/) { sub(/^'\''/, "", v); sub(/'\''$/, "", v) }
             print v; exit
         }
     ' "$EXTRA_TOOLS_CONFIG" 2>/dev/null
