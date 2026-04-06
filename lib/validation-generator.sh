@@ -390,7 +390,18 @@ if command -v lynis &>/dev/null; then
         apt-get autoremove --purge -y >/dev/null 2>&1 || true
         apt-get clean >/dev/null 2>&1 || true
 
+        # Remove Lynis APT source if it was added
+        rm -f /etc/apt/sources.list.d/lynis*.list 2>/dev/null
+        rm -f /etc/apt/sources.list.d/cisofy*.list 2>/dev/null
+
+        # Remove any leftover binary
+        rm -f /usr/bin/lynis /usr/sbin/lynis 2>/dev/null
+
+        # Remove config and log files
+        rm -rf /etc/lynis /var/log/lynis.log /var/log/lynis-report.dat 2>/dev/null
+
         # Verify it's gone
+        hash -r  # clear bash command cache
         if command -v lynis &>/dev/null; then
             warn "Lynis removal incomplete"
         else
