@@ -14,6 +14,7 @@ source "$LIB/squashfs-ops.sh"
 source "$LIB/chroot-ops.sh"
 source "$LIB/iso-builder.sh"
 source "$LIB/hardening.sh"
+source "$LIB/extra-tools.sh" 2>/dev/null || true
 
 # ── Configuration ─────────────────────────────────────────
 PHASE="${PHASE:-build}"
@@ -132,15 +133,18 @@ fi
 
 remove_packages_safe "$ISOWORK/squashfs-root" "$PACKAGES_FILE" "$CRITICAL_FILE"
 
-# ── Apply hardening (if enabled) ─────────────────────────
+# ── Install packages: security + extra tools (if enabled) ──
+install_all_packages "$ISOWORK/squashfs-root"
+
+# ── Apply CIS hardening configs (if enabled) ────────────
 apply_hardening "$ISOWORK/squashfs-root" "${UBUNTU_VERSION}"
 
 # ── Teardown chroot ──────────────────────────────────────
-step 7 "Teardown Chroot"
+step 8 "Teardown Chroot"
 teardown_chroot "$ISOWORK/squashfs-root"
 
 # ── Rebuild squashfs ─────────────────────────────────────
-step 8 "Rebuilding SquashFS"
+step 9 "Rebuilding SquashFS"
 
 # Get the relative path within casper/
 SQUASHFS_REL=$(basename "$TARGET_SQUASHFS")
@@ -153,11 +157,11 @@ generate_manifest "$ISOWORK/squashfs-root" "$CASPER_DIR/${SQUASHFS_BASENAME}.man
 generate_size_file "$ISOWORK/squashfs-root" "$CASPER_DIR/${SQUASHFS_BASENAME}.size"
 
 # ── Regenerate md5sums ───────────────────────────────────
-step 9 "Regenerating Checksums"
+step 10 "Regenerating Checksums"
 regenerate_md5sums "$ISOWORK/extract"
 
 # ── Build ISO ────────────────────────────────────────────
-step 10 "Building Final ISO"
+step 11 "Building Final ISO"
 
 CUSTOM_ISO="golden-ubuntu-minimal-${UBUNTU_VERSION}.iso"
 
@@ -176,11 +180,11 @@ build_iso "$ISOWORK/extract" "/output/$CUSTOM_ISO" \
     "$ELTORITO_REL" "Ubuntu-Server-Minimal-Custom"
 
 # ── Verify ───────────────────────────────────────────────
-step 11 "Verification"
+step 12 "Verification"
 verify_iso_md5 "/output/$CUSTOM_ISO"
 
 # ── Generate validation script ───────────────────────────
-step 12 "Generating Validation Script"
+step 13 "Generating Validation Script"
 if [ -f "$LIB/validation-generator.sh" ]; then
     source "$LIB/validation-generator.sh"
 
@@ -195,7 +199,7 @@ if [ -f "$LIB/validation-generator.sh" ]; then
 fi
 
 # ── Summary ──────────────────────────────────────────────
-step 13 "Cleanup & Summary"
+step 14 "Cleanup & Summary"
 
 ORIG_SIZE=$(du -sh "/input/$ISO_NAME" | awk '{print $1}')
 CUSTOM_SIZE=$(du -sh "/output/$CUSTOM_ISO" | awk '{print $1}')

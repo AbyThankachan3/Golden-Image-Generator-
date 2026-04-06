@@ -118,7 +118,10 @@ The resulting ISO boots into the standard Ubuntu installer (subiquity), but the 
 GoldenImageProject/
 ├── golden-image-builder.sh          # Main entry point
 ├── cis-config.yml                   # CIS hardening values (single source of truth)
-├── approved-packages-*.txt          # User-approved package removal lists (per version)
+├── approved-lists/                  # User-approved package removal lists (per version)
+│   ├── approved-packages-22.04.5.txt
+│   ├── approved-packages-24.04.4.txt
+│   └── approved-packages-25.10.txt
 │
 ├── lib/                             # Core library modules
 │   ├── config.sh                    # Version detection, ISO download, overrides
@@ -386,14 +389,14 @@ modules_disabled:
 After running `analyze-only`, review the generated `safe-packages-{VERSION}.txt` and create your approved list:
 
 ```bash
-# Copy the safe list
-cp safe-packages-24.04.4.txt approved-packages-24.04.4.txt
+# Copy the safe list to approved-lists folder
+cp safe-packages-24.04.4.txt approved-lists/approved-packages-24.04.4.txt
 
 # Edit — remove any packages you want to KEEP
-vim approved-packages-24.04.4.txt
+vim approved-lists/approved-packages-24.04.4.txt
 
 # Push to repo for build-only mode
-git add approved-packages-24.04.4.txt
+git add approved-lists/approved-packages-24.04.4.txt
 git commit -m "Approved package list for 24.04.4"
 git push
 ```

@@ -1,0 +1,100 @@
+# ══════════════════════════════════════════════════════════════
+# Extra Tools Configuration — Golden Image Builder
+# ══════════════════════════════════════════════════════════════
+#
+# Tools and packages to install in the golden image beyond
+# the base OS and CIS hardening packages.
+#
+# Edit this file to add/remove tools for your deployment.
+# Used when --install-tools flag is set.
+#
+# ══════════════════════════════════════════════════════════════
+
+# ── APT Packages ─────────────────────────────────────────────
+# Installed via apt-get inside squashfs chroot
+apt_packages:
+  - apt-transport-https
+  - ca-certificates
+  - curl
+  - gnupg
+  - lsb-release
+  - jq
+  - fping
+  - docker.io
+
+# ── Binary Tools (downloaded from URLs) ──────────────────────
+# Downloaded in Docker container, copied into squashfs chroot
+# Fields:
+#   url:           Direct download URL (static)
+#   url_command:   Command to resolve dynamic URL (runs in Docker)
+#   url_template:  URL template with {VERSION} placeholder
+#   dest:          Install path inside squashfs
+#   extract:       true if tarball/archive (default: false)
+#   extract_path:  Path inside archive to extract (for nested tarballs)
+binary_tools:
+  - name: yq
+    url: "https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64"
+    dest: "/usr/local/bin/yq"
+
+  - name: kubectl
+    url_command: "curl -L -s https://dl.k8s.io/release/stable.txt"
+    url_template: "https://dl.k8s.io/release/{VERSION}/bin/linux/amd64/kubectl"
+    dest: "/usr/local/bin/kubectl"
+
+  - name: kind
+    url: "https://github.com/kubernetes-sigs/kind/releases/download/v0.29.0/kind-linux-amd64"
+    dest: "/usr/local/bin/kind"
+
+  - name: eksctl
+    url: "https://github.com/eksctl-io/eksctl/releases/latest/download/eksctl_Linux_amd64.tar.gz"
+    dest: "/usr/local/bin/eksctl"
+    extract: true
+
+  - name: eksctl-anywhere
+    url_command: "curl -s https://anywhere-assets.eks.amazonaws.com/releases/eks-a/manifest.yaml | grep v0.22.5 | grep linux-amd64 | head -1 | awk '{print $2}'"
+    dest: "/usr/local/bin/eksctl-anywhere"
+    extract: true
+
+  - name: helm
+    url: "https://get.helm.sh/helm-v3.17.3-linux-amd64.tar.gz"
+    dest: "/usr/local/bin/helm"
+    extract: true
+    extract_path: "linux-amd64/helm"
+
+  - name: temporal
+    url: "https://temporal.download/cli/archive/latest?platform=linux&arch=amd64"
+    dest: "/usr/local/bin/temporal"
+    extract: true
+
+  - name: az-cli
+    install_command: "curl -sL https://aka.ms/InstallAzureCLIDeb | bash"
+
+# ── Deb Packages (downloaded .deb files) ─────────────────────
+# Downloaded and installed via dpkg inside chroot
+deb_packages:
+  - name: racadm
+    urls:
+      - "https://armadaosimages.blob.core.windows.net/packages/srvadmin-hapi_11.0.0.0_amd64.deb"
+      - "https://armadaosimages.blob.core.windows.net/packages/srvadmin-idracadm7_11.0.0.0_all.deb"
+      - "https://armadaosimages.blob.core.windows.net/packages/srvadmin-idracadm8_11.0.0.0_amd64.deb"
+
+# ── Services to Enable ───────────────────────────────────────
+# Enabled via systemctl after installation
+services_enabled:
+  - docker
+
+# ── Packages to Hold ─────────────────────────────────────────
+# Prevents these packages from being upgraded/removed by apt
+# Useful for pinning Kubernetes component versions
+packages_hold:
+  - kubeadm
+  - kubectl
+  - kubelet
+  - kubernetes-cni
+  - cri-tools
+
+# ── User Groups ──────────────────────────────────────────────
+# Add the default user to these groups on first boot
+# (applied via cloud-init or first-boot script since user doesn't exist in squashfs)
+user_groups:
+  - docker

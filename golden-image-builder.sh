@@ -29,6 +29,7 @@ VERSION=""
 HARDENING_LAYER1_ENABLE=false
 HARDENING_LAYER2_ENABLE=false
 HARDENING_LAYER3_ENABLE=false
+INSTALL_TOOLS_ENABLE=false
 
 # ── CLI Parsing ───────────────────────────────────────────
 usage() {
@@ -52,6 +53,7 @@ ${BOLD}Options:${NC}
   --harden-configs       Write SSH/sysctl hardening config files in squashfs
   --harden-cis           Apply CIS Level 1 controls in squashfs (no first-boot needed)
   --harden-all           Enable all three hardening layers
+  --install-tools        Install extra tools from extra-tools.yml (docker, kubectl, helm, etc.)
   --output-name <name>   Custom output ISO filename
   -h, --help             Show this help
 
@@ -77,6 +79,7 @@ while [ $# -gt 0 ]; do
         --harden-configs)  HARDENING_LAYER2_ENABLE=true; shift ;;
         --harden-cis)      HARDENING_LAYER3_ENABLE=true; shift ;;
         --harden-all)      HARDENING_LAYER1_ENABLE=true; HARDENING_LAYER2_ENABLE=true; HARDENING_LAYER3_ENABLE=true; shift ;;
+        --install-tools)   INSTALL_TOOLS_ENABLE=true; shift ;;
         --output-name)  OUTPUT_NAME="$2"; shift 2 ;;
         -h|--help)      usage ;;
         -*)             die "Unknown option: $1" ;;
@@ -200,27 +203,36 @@ if [ -n "$PACKAGES_FILE" ]; then
         [ "$HARDENING_LAYER3_ENABLE" = "true" ] && echo "    ✔ CIS Level 1 controls (in squashfs)"
         echo ""
     fi
+    [ "$INSTALL_TOOLS_ENABLE" = "true" ] && echo -e "  ${BOLD}Extra Tools:${NC} enabled (extra-tools.yml)" && echo ""
 
-    docker run --rm \
-        --platform linux/amd64 \
-        --privileged \
-        -e "PHASE=build" \
-        -e "UBUNTU_VERSION=${FULL_VERSION}" \
-        -e "MAJOR_MINOR=${MAJOR_MINOR}" \
-        -e "ISO_NAME=${ISO_NAME}" \
-        -e "HARDENING_LAYER1_ENABLE=${HARDENING_LAYER1_ENABLE}" \
-        -e "HARDENING_LAYER2_ENABLE=${HARDENING_LAYER2_ENABLE}" \
-        -e "HARDENING_LAYER3_ENABLE=${HARDENING_LAYER3_ENABLE}" \
-        -e "HARDENING_CIS_REPO=${HARDENING_CIS_REPO:-}" \
-        -e "HARDENING_CIS_BRANCH=${HARDENING_CIS_BRANCH:-main}" \
-        -v "${CACHE_DIR}:/input:ro" \
-        -v "${OUTPUT_DIR}:/output" \
-        -v "${PROJECT_DIR}/lib:/lib-golden:ro" \
-        -v "${PROJECT_DIR}/configs:/lib-golden/../configs:ro" \
-        -v "${PROJECT_DIR}/hardening:/hardening:ro" \
-        -v "$(realpath "$PACKAGES_FILE"):/tmp/approved-packages.txt:ro" \
-        "${DOCKER_BASE}" \
-        /bin/bash /lib-golden/docker-entrypoint.sh
+    DOCKER_ARGS=(
+        docker run --rm
+        --platform linux/amd64
+        --privileged
+        -e "PHASE=build"
+        -e "UBUNTU_VERSION=${FULL_VERSION}"
+        -e "MAJOR_MINOR=${MAJOR_MINOR}"
+        -e "ISO_NAME=${ISO_NAME}"
+        -e "HARDENING_LAYER1_ENABLE=${HARDENING_LAYER1_ENABLE}"
+        -e "HARDENING_LAYER2_ENABLE=${HARDENING_LAYER2_ENABLE}"
+        -e "HARDENING_LAYER3_ENABLE=${HARDENING_LAYER3_ENABLE}"
+        -e "INSTALL_TOOLS_ENABLE=${INSTALL_TOOLS_ENABLE}"
+        -e "HARDENING_CIS_REPO=${HARDENING_CIS_REPO:-}"
+        -e "HARDENING_CIS_BRANCH=${HARDENING_CIS_BRANCH:-main}"
+        -v "${CACHE_DIR}:/input:ro"
+        -v "${OUTPUT_DIR}:/output"
+        -v "${PROJECT_DIR}/lib:/lib-golden:ro"
+        -v "${PROJECT_DIR}/configs:/lib-golden/../configs:ro"
+        -v "${PROJECT_DIR}/hardening:/hardening:ro"
+        -v "$(realpath "$PACKAGES_FILE"):/tmp/approved-packages.txt:ro"
+    )
+    # Mount extra-tools.yml if install-tools enabled
+    TOOLS_FILE="${EXTRA_TOOLS_FILE:-extra-tools.yml}"
+    if [ "$INSTALL_TOOLS_ENABLE" = "true" ] && [ -f "$PROJECT_DIR/extra-tools/${TOOLS_FILE}" ]; then
+        DOCKER_ARGS+=(-v "${PROJECT_DIR}/extra-tools/${TOOLS_FILE}:/extra-tools/extra-tools.yml:ro")
+    fi
+    DOCKER_ARGS+=("${DOCKER_BASE}" /bin/bash /lib-golden/docker-entrypoint.sh)
+    "${DOCKER_ARGS[@]}"
 
     echo ""
     banner "BUILD COMPLETE"
@@ -354,28 +366,37 @@ if [ "$HARDENING_LAYER1_ENABLE" = "true" ] || [ "$HARDENING_LAYER2_ENABLE" = "tr
     [ "$HARDENING_LAYER3_ENABLE" = "true" ] && echo "    ✔ CIS Level 1 controls (in squashfs)"
     echo ""
 fi
+[ "$INSTALL_TOOLS_ENABLE" = "true" ] && echo -e "  ${BOLD}Extra Tools:${NC} enabled (extra-tools.yml)" && echo ""
 
-docker run --rm \
-    --platform linux/amd64 \
-    --privileged \
-    -e "PHASE=build" \
-    -e "UBUNTU_VERSION=${FULL_VERSION}" \
-    -e "MAJOR_MINOR=${MAJOR_MINOR}" \
-    -e "ISO_NAME=${ISO_NAME}" \
-    -e "HARDENING_LAYER1_ENABLE=${HARDENING_LAYER1_ENABLE}" \
-    -e "HARDENING_LAYER2_ENABLE=${HARDENING_LAYER2_ENABLE}" \
-    -e "HARDENING_LAYER3_ENABLE=${HARDENING_LAYER3_ENABLE}" \
-    -e "HARDENING_CIS_REPO=${HARDENING_CIS_REPO:-}" \
-    -e "HARDENING_CIS_BRANCH=${HARDENING_CIS_BRANCH:-main}" \
-    -v "${CACHE_DIR}:/input:ro" \
-    -v "${OUTPUT_DIR}:/output" \
-    -v "${PROJECT_DIR}/lib:/lib-golden:ro" \
-    -v "${PROJECT_DIR}/configs:/configs:ro" \
-    -v "${PROJECT_DIR}/hardening:/hardening:ro" \
-    -v "${PROJECT_DIR}/cis-config.yml:/cis-config/cis-config.yml:ro" \
-    -v "$(realpath "$APPROVED_FILE"):/tmp/approved-packages.txt:ro" \
-    "${DOCKER_BASE}" \
-    /bin/bash /lib-golden/docker-entrypoint.sh
+DOCKER_ARGS=(
+    docker run --rm
+    --platform linux/amd64
+    --privileged
+    -e "PHASE=build"
+    -e "UBUNTU_VERSION=${FULL_VERSION}"
+    -e "MAJOR_MINOR=${MAJOR_MINOR}"
+    -e "ISO_NAME=${ISO_NAME}"
+    -e "HARDENING_LAYER1_ENABLE=${HARDENING_LAYER1_ENABLE}"
+    -e "HARDENING_LAYER2_ENABLE=${HARDENING_LAYER2_ENABLE}"
+    -e "HARDENING_LAYER3_ENABLE=${HARDENING_LAYER3_ENABLE}"
+    -e "INSTALL_TOOLS_ENABLE=${INSTALL_TOOLS_ENABLE}"
+    -e "HARDENING_CIS_REPO=${HARDENING_CIS_REPO:-}"
+    -e "HARDENING_CIS_BRANCH=${HARDENING_CIS_BRANCH:-main}"
+    -v "${CACHE_DIR}:/input:ro"
+    -v "${OUTPUT_DIR}:/output"
+    -v "${PROJECT_DIR}/lib:/lib-golden:ro"
+    -v "${PROJECT_DIR}/configs:/configs:ro"
+    -v "${PROJECT_DIR}/hardening:/hardening:ro"
+    -v "${PROJECT_DIR}/cis-config.yml:/cis-config/cis-config.yml:ro"
+    -v "$(realpath "$APPROVED_FILE"):/tmp/approved-packages.txt:ro"
+)
+# Mount extra-tools config if install-tools enabled
+TOOLS_FILE="${EXTRA_TOOLS_FILE:-extra-tools.yml}"
+if [ "$INSTALL_TOOLS_ENABLE" = "true" ] && [ -f "$PROJECT_DIR/extra-tools/${TOOLS_FILE}" ]; then
+    DOCKER_ARGS+=(-v "${PROJECT_DIR}/extra-tools/${TOOLS_FILE}:/extra-tools/extra-tools.yml:ro")
+fi
+DOCKER_ARGS+=("${DOCKER_BASE}" /bin/bash /lib-golden/docker-entrypoint.sh)
+"${DOCKER_ARGS[@]}"
 
 # Rename output if custom name provided
 ISO_DEFAULT="${OUTPUT_DIR}/golden-ubuntu-minimal-${FULL_VERSION}.iso"

@@ -437,5 +437,112 @@ fi
 echo ""
 SECURITY_CHECKS
 
+    # ── Section E: Extra Tools Verification (dynamic from extra-tools.yml) ──
+    local TOOLS_YAML="/extra-tools/extra-tools.yml"
+    if [ "${INSTALL_TOOLS_ENABLE:-false}" = "true" ] && [ -f "$TOOLS_YAML" ]; then
+        cat >> "$OUTPUT" << 'TOOLS_HEADER'
+
+header "SECTION E: EXTRA TOOLS VERIFICATION"
+
+TOOLS_HEADER
+
+        # APT packages check
+        local apt_pkgs
+        apt_pkgs=$(awk '/^apt_packages:/{f=1;next} f && /^[a-z_]+:/{exit} f && /^  - /' "$TOOLS_YAML" | sed 's/^  - //' | grep -v '^$')
+        if [ -n "$apt_pkgs" ]; then
+            echo 'echo ""; echo -e "  ${BOLD}E1. APT Packages${NC}"' >> "$OUTPUT"
+            while IFS= read -r pkg; do
+                [ -z "$pkg" ] && continue
+                cat >> "$OUTPUT" << APTEOF
+if dpkg -l "$pkg" 2>/dev/null | grep -q "^ii"; then
+    pass "$pkg installed"
+else
+    fail "$pkg NOT installed"
+fi
+APTEOF
+            done <<< "$apt_pkgs"
+        fi
+
+        # Binary tools check
+        local bin_count
+        bin_count=$(awk '/^binary_tools:/{f=1;next} f && /^[a-z_]+:/{exit} f && /^  - name:/{c++} END{print c+0}' "$TOOLS_YAML")
+        if [ "$bin_count" -gt 0 ]; then
+            echo 'echo ""; echo -e "  ${BOLD}E2. Binary Tools${NC}"' >> "$OUTPUT"
+            awk '/^binary_tools:/{f=1;next} f && /^[a-z_]+:/{exit} f' "$TOOLS_YAML" | while IFS= read -r line; do
+                local name dest
+                if echo "$line" | grep -q "name:"; then
+                    name=$(echo "$line" | sed 's/.*name:[[:space:]]*//' | sed 's/"//g' | sed "s/'//g")
+                fi
+                if echo "$line" | grep -q "dest:"; then
+                    dest=$(echo "$line" | sed 's/.*dest:[[:space:]]*//' | sed 's/"//g' | sed "s/'//g")
+                    cat >> "$OUTPUT" << BINEOF
+if [ -x "$dest" ]; then
+    pass "$name present at $dest"
+else
+    fail "$name NOT found at $dest"
+fi
+BINEOF
+                fi
+            done
+        fi
+
+        # Services enabled check
+        local services
+        services=$(awk '/^services_enabled:/{f=1;next} f && /^[a-z_]+:/{exit} f && /^  - /' "$TOOLS_YAML" | sed 's/^  - //' | grep -v '^$')
+        if [ -n "$services" ]; then
+            echo 'echo ""; echo -e "  ${BOLD}E3. Services Enabled${NC}"' >> "$OUTPUT"
+            while IFS= read -r svc; do
+                [ -z "$svc" ] && continue
+                cat >> "$OUTPUT" << SVCEOF
+if systemctl is-enabled "$svc" 2>/dev/null | grep -q "enabled"; then
+    pass "$svc service enabled"
+else
+    warn "$svc service NOT enabled"
+fi
+SVCEOF
+            done <<< "$services"
+        fi
+
+        # Packages held check
+        local hold_pkgs
+        hold_pkgs=$(awk '/^packages_hold:/{f=1;next} f && /^[a-z_]+:/{exit} f && /^  - /' "$TOOLS_YAML" | sed 's/^  - //' | grep -v '^$')
+        if [ -n "$hold_pkgs" ]; then
+            echo 'echo ""; echo -e "  ${BOLD}E4. Packages Held${NC}"' >> "$OUTPUT"
+            while IFS= read -r pkg; do
+                [ -z "$pkg" ] && continue
+                cat >> "$OUTPUT" << HOLDEOF
+if apt-mark showhold 2>/dev/null | grep -q "^${pkg}\$"; then
+    pass "$pkg is held"
+else
+    if dpkg -l "$pkg" 2>/dev/null | grep -q "^ii"; then
+        warn "$pkg installed but NOT held"
+        rec "Run: apt-mark hold $pkg"
+    else
+        info "$pkg not installed yet (hold applies after k8s setup)"
+    fi
+fi
+HOLDEOF
+            done <<< "$hold_pkgs"
+        fi
+
+        # Deb packages check
+        local deb_names
+        deb_names=$(awk '/^deb_packages:/{f=1;next} f && /^[a-z_]+:/{exit} f && /name:/' "$TOOLS_YAML" | sed 's/.*name:[[:space:]]*//' | sed 's/"//g' | grep -v '^$')
+        if [ -n "$deb_names" ]; then
+            echo 'echo ""; echo -e "  ${BOLD}E5. Custom Deb Packages${NC}"' >> "$OUTPUT"
+            while IFS= read -r name; do
+                [ -z "$name" ] && continue
+                cat >> "$OUTPUT" << DEBEOF
+# Check if $name tools are available
+if command -v "$name" &>/dev/null; then
+    pass "$name tools available"
+else
+    warn "$name tools not found in PATH (may need specific binary check)"
+fi
+DEBEOF
+            done <<< "$deb_names"
+        fi
+    fi
+
     chmod +x "$OUTPUT"
 }

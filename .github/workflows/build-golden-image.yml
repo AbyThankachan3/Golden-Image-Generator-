@@ -36,6 +36,18 @@ on:
         type: boolean
         default: true
 
+      install_tools:
+        description: 'Install extra tools (Docker, kubectl, helm, etc.) — uses config from extra-tools/ folder'
+        required: true
+        type: boolean
+        default: false
+
+      extra_tools_file:
+        description: 'Extra tools config filename (from extra-tools/ folder, e.g. extra-tools.yml or extra-tools-k8s.yml)'
+        required: false
+        type: string
+        default: 'extra-tools.yml'
+
       storage_destination:
         description: 'Where to upload the built ISO (local = on this machine)'
         required: true
@@ -136,6 +148,92 @@ jobs:
           echo "> **To upload custom files:** Use the repo's **Add file -> Upload files** button." >> $GITHUB_STEP_SUMMARY
 
   # ────────────────────────────────────────────────────────────
+  #  JOB 1c: DISPLAY EXTRA TOOLS (instant — no ISO needed)
+  # ────────────────────────────────────────────────────────────
+  review-tools:
+    name: "Review: Extra Tools"
+    if: inputs.install_tools == true
+    runs-on: self-hosted
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Display extra tools summary
+        shell: bash {0}
+        run: |
+          TOOLS_FILE="extra-tools/${{ inputs.extra_tools_file }}"
+
+          echo "## Extra Tools to Install" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Source: \`${TOOLS_FILE}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ ! -f "$TOOLS_FILE" ]; then
+            echo "**File not found:** \`${TOOLS_FILE}\`" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "Available files in \`extra-tools/\`:" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            ls extra-tools/*.yml 2>/dev/null || echo "  (none)" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            exit 0
+          fi
+
+          # APT Packages
+          echo "### APT Packages" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          awk '/^apt_packages:/{f=1;next} f && /^[a-z_]+:/{exit} f && /^  - /' "$TOOLS_FILE" | sed 's/^  - //' >> $GITHUB_STEP_SUMMARY || true
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # Binary Tools
+          echo "### Binary Tools (downloaded)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Tool | Destination |" >> $GITHUB_STEP_SUMMARY
+          echo "|------|-------------|" >> $GITHUB_STEP_SUMMARY
+          awk '/^binary_tools:/{f=1;next} f && /^[a-z_]+:/{exit} f' "$TOOLS_FILE" | while IFS= read -r line; do
+            if echo "$line" | grep -q "name:"; then
+              NAME=$(echo "$line" | sed 's/.*name:[[:space:]]*//' | sed 's/"//g')
+            fi
+            if echo "$line" | grep -q "dest:"; then
+              DEST=$(echo "$line" | sed 's/.*dest:[[:space:]]*//' | sed 's/"//g')
+              echo "| $NAME | \`$DEST\` |" >> $GITHUB_STEP_SUMMARY
+            fi
+          done
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # Deb Packages
+          DEB_NAMES=$(awk '/^deb_packages:/{f=1;next} f && /^[a-z_]+:/{exit} f && /name:/' "$TOOLS_FILE" | sed 's/.*name:[[:space:]]*//' | sed 's/"//g')
+          if [ -n "$DEB_NAMES" ]; then
+            echo "### Deb Packages" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            echo "$DEB_NAMES" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          # Services Enabled
+          echo "### Services Enabled" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          awk '/^services_enabled:/{f=1;next} f && /^[a-z_]+:/{exit} f && /^  - /' "$TOOLS_FILE" | sed 's/^  - //' >> $GITHUB_STEP_SUMMARY || true
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # Packages Hold
+          HOLD_PKGS=$(awk '/^packages_hold:/{f=1;next} f && /^[a-z_]+:/{exit} f && /^  - /' "$TOOLS_FILE" | sed 's/^  - //')
+          if [ -n "$HOLD_PKGS" ]; then
+            echo "### Packages Held (version pinned)" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            echo "$HOLD_PKGS" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          echo "---" >> $GITHUB_STEP_SUMMARY
+          echo "> **To customize:** Edit \`${TOOLS_FILE}\` in the repo, or create a new file in \`extra-tools/\` and specify its name in the workflow input." >> $GITHUB_STEP_SUMMARY
+
+  # ────────────────────────────────────────────────────────────
   #  JOB 1b: ANALYZE PACKAGES
   # ────────────────────────────────────────────────────────────
   analyze:
@@ -212,7 +310,7 @@ jobs:
             echo "Build was **not started**. To build the ISO:" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "1. Review the packages and CIS values above" >> $GITHUB_STEP_SUMMARY
-            echo "2. (Optional) Copy the safe list, edit it, upload as \`approved-packages-${VERSION}.txt\` to the repo" >> $GITHUB_STEP_SUMMARY
+            echo "2. (Optional) Copy the safe list, edit it, upload as \`approved-packages-${VERSION}.txt\` to \`approved-lists/\` folder in the repo" >> $GITHUB_STEP_SUMMARY
             echo "3. Re-run the workflow with mode = **build-only** or **analyze-and-build**" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "Reports saved locally at: \`~/GoldenImages/safe-packages-${VERSION}.txt\` etc." >> $GITHUB_STEP_SUMMARY
@@ -263,12 +361,13 @@ jobs:
   # ────────────────────────────────────────────────────────────
   build:
     name: "Build ISO"
-    needs: [review-cis, analyze]
+    needs: [review-cis, review-tools, analyze]
     if: |
       always() &&
       inputs.mode != 'analyze-only' &&
       (needs.analyze.result == 'success' || needs.analyze.result == 'skipped') &&
-      (needs.review-cis.result == 'success' || needs.review-cis.result == 'skipped')
+      (needs.review-cis.result == 'success' || needs.review-cis.result == 'skipped') &&
+      (needs.review-tools.result == 'success' || needs.review-tools.result == 'skipped')
     runs-on: self-hosted
     timeout-minutes: 120
 
@@ -311,11 +410,11 @@ jobs:
           fi
 
           if [ -z "$FOUND" ] && [ "$MODE" = "build-only" ]; then
-            # In build-only: check repo root first, then local persistent dir
-            # 1. Repo root (user pushed)
-            if [ -f "./approved-packages-${VERSION}.txt" ]; then
-              echo "✅ Using approved-packages-${VERSION}.txt from repo"
-              cp "./approved-packages-${VERSION}.txt" ./output/approved-packages.txt
+            # In build-only: check approved-lists/ folder first, then local persistent dir
+            # 1. Repo: approved-lists/ folder (user pushed)
+            if [ -f "./approved-lists/approved-packages-${VERSION}.txt" ]; then
+              echo "✅ Using approved-lists/approved-packages-${VERSION}.txt from repo"
+              cp "./approved-lists/approved-packages-${VERSION}.txt" ./output/approved-packages.txt
               FOUND=1
             # 2. Local persistent dir (user edited after analyze)
             elif [ -f "${LOCAL_DIR}/approved-packages-${VERSION}.txt" ]; then
@@ -329,7 +428,7 @@ jobs:
             echo "::error::No package list found for version ${VERSION}."
             if [ "$MODE" = "build-only" ]; then
               echo "::error::For build-only, provide one of:"
-              echo "::error::  1. Push approved-packages-${VERSION}.txt to repo root"
+              echo "::error::  1. Push approved-packages-${VERSION}.txt to approved-lists/ folder in repo"
               echo "::error::  2. Place at ${LOCAL_DIR}/approved-packages-${VERSION}.txt"
               echo "::error::Or run analyze-only first."
             else
@@ -353,6 +452,11 @@ jobs:
 
           if [ "${{ inputs.enable_hardening }}" = "true" ]; then
             ARGS="${ARGS} --harden-all"
+          fi
+
+          if [ "${{ inputs.install_tools }}" = "true" ]; then
+            ARGS="${ARGS} --install-tools"
+            export EXTRA_TOOLS_FILE="${{ inputs.extra_tools_file }}"
           fi
 
           ARGS="${ARGS} --url ${{ inputs.iso_url }}"

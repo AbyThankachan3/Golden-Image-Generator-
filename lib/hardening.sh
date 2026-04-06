@@ -129,7 +129,7 @@ harden_write_configs() {
         mkdir -p "$ROOT/etc/ssh/sshd_config.d"
         cp "$SSH_CONF" "$ROOT/etc/ssh/sshd_config.d/99-hardening-ssh.conf"
         chmod 600 "$ROOT/etc/ssh/sshd_config.d/99-hardening-ssh.conf"
-        # Also tighten sshd_config permissions (Lynis FILE-7524)
+        # Also tighten sshd_config permissions
         chmod 600 "$ROOT/etc/ssh/sshd_config" 2>/dev/null || true
         log "SSH hardening config installed (13 settings)"
     else
@@ -449,14 +449,40 @@ CIS_NET_EOF
 }
 
 # ══════════════════════════════════════════════════════════
-#  Main orchestrator
+#  Package installation orchestrator (runs BEFORE hardening)
+# ══════════════════════════════════════════════════════════
+install_all_packages() {
+    local ROOT="$1"
+
+    local any_install=false
+    [ "${HARDENING_LAYER1_ENABLE:-false}" = "true" ] && any_install=true
+    [ "${INSTALL_TOOLS_ENABLE:-false}" = "true" ] && any_install=true
+
+    if [ "$any_install" = "false" ]; then
+        return 0
+    fi
+
+    step "6.5" "Installing Packages"
+
+    # Security packages (Layer 1)
+    harden_install_packages "$ROOT"
+
+    # Extra tools (kubectl, docker, helm, etc.)
+    if type install_extra_tools &>/dev/null; then
+        install_extra_tools "$ROOT"
+    fi
+
+    log "All package installations complete"
+}
+
+# ══════════════════════════════════════════════════════════
+#  Hardening orchestrator (runs AFTER all installations)
 # ══════════════════════════════════════════════════════════
 apply_hardening() {
     local ROOT="$1"
     local VERSION="${2:-}"
 
     local any_enabled=false
-    [ "${HARDENING_LAYER1_ENABLE:-false}" = "true" ] && any_enabled=true
     [ "${HARDENING_LAYER2_ENABLE:-false}" = "true" ] && any_enabled=true
     [ "${HARDENING_LAYER3_ENABLE:-false}" = "true" ] && any_enabled=true
 
@@ -464,16 +490,13 @@ apply_hardening() {
         return 0
     fi
 
-    step "6.5" "Applying Hardening"
-
-    harden_install_packages "$ROOT"
+    step "7" "Applying CIS Hardening"
     harden_write_configs "$ROOT"
     harden_cis_controls "$ROOT"
 
     local summary=""
-    [ "${HARDENING_LAYER1_ENABLE:-false}" = "true" ] && summary="${summary}packages "
     [ "${HARDENING_LAYER2_ENABLE:-false}" = "true" ] && summary="${summary}configs+grub "
     [ "${HARDENING_LAYER3_ENABLE:-false}" = "true" ] && summary="${summary}cis-level1 "
 
-    log "Hardening applied: ${summary}"
+    log "CIS hardening applied: ${summary}"
 }

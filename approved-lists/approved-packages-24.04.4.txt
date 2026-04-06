@@ -15,7 +15,6 @@ libatm1
 libbinutils
 libctf-nobfd0
 libctf0
-libcurl3-gnutls
 libdw1
 libeatmydata1
 libgdbm-compat4
