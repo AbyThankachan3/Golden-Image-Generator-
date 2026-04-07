@@ -147,10 +147,12 @@ if [ "$HARDENING_LAYER2_ENABLE" = "true" ]; then
         else
             echo -e "  Generating GRUB PBKDF2 hash (via Docker)..."
             # grub-mkpasswd-pbkdf2 is Linux-only, run inside Docker
-            GRUB_HASH=$(echo -e "${GRUB_PASS_1}\n${GRUB_PASS_1}" | \
+            # Use printf for cross-platform compatibility (echo -e fails on Git Bash/Windows)
+            # Capture full output first, then extract hash (avoids pipefail exit on grep)
+            GRUB_OUTPUT=$(printf '%s\n%s\n' "${GRUB_PASS_1}" "${GRUB_PASS_1}" | \
                 docker run --rm -i --platform linux/amd64 "${DOCKER_BASE}" \
-                bash -c "apt-get update -qq >/dev/null 2>&1 && apt-get install -y -qq grub-common >/dev/null 2>&1 && grub-mkpasswd-pbkdf2 2>/dev/null" | \
-                grep "^PBKDF2" | sed 's/.*is //')
+                bash -c "apt-get update -qq >/dev/null 2>&1 && apt-get install -y -qq grub-common >/dev/null 2>&1 && grub-mkpasswd-pbkdf2" 2>&1 || true)
+            GRUB_HASH=$(echo "$GRUB_OUTPUT" | grep "^PBKDF2" | sed 's/.*is //' || true)
 
             if [ -n "$GRUB_HASH" ]; then
                 mkdir -p "$(dirname "$GRUB_HASH_FILE")"

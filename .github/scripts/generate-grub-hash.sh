@@ -13,12 +13,12 @@ echo "::add-mask::${GRUB_PASSWORD}"
 
 echo "Generating GRUB PBKDF2 hash..."
 
-HASH=$(echo -e "${GRUB_PASSWORD}\n${GRUB_PASSWORD}" | \
+GRUB_OUTPUT=$(printf '%s\n%s\n' "${GRUB_PASSWORD}" "${GRUB_PASSWORD}" | \
     docker run --rm -i --platform linux/amd64 ubuntu:22.04 bash -c \
     "apt-get update -qq >/dev/null 2>&1 && \
      apt-get install -y -qq grub-common >/dev/null 2>&1 && \
-     grub-mkpasswd-pbkdf2 2>/dev/null" | \
-    grep "^PBKDF2" | sed 's/.*is //')
+     grub-mkpasswd-pbkdf2" 2>&1 || true)
+HASH=$(echo "$GRUB_OUTPUT" | grep "^PBKDF2" | sed 's/.*is //' || true)
 
 if [ -z "$HASH" ]; then
     echo "::error::Failed to generate GRUB PBKDF2 hash"
