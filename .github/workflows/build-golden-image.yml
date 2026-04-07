@@ -42,12 +42,6 @@ on:
         type: string
         default: 'extra-tools.yml'
 
-      azure_container:
-        description: 'Azure Blob container name for ISO storage'
-        required: false
-        type: string
-        default: 'golden-images'
-
 jobs:
   # ────────────────────────────────────────────────────────────
   #  JOB 1a: DISPLAY CIS VALUES (instant — runs in parallel)
@@ -318,9 +312,9 @@ jobs:
 
       - name: Validate Azure credentials
         run: |
-          if [ -z "${{ secrets.AZURE_CONNECTION_STRING }}" ]; then
-            echo "::error::AZURE_CONNECTION_STRING secret is required for uploading the ISO."
-            echo "::error::Set it under: Settings → Secrets and variables → Actions → Repository secrets"
+          if [ -z "${{ secrets.AZURE_STORAGE_ACCOUNT }}" ] || [ -z "${{ secrets.AZURE_STORAGE_KEY }}" ]; then
+            echo "::error::AZURE_STORAGE_ACCOUNT and AZURE_STORAGE_KEY secrets are required for uploading the ISO."
+            echo "::error::Set them under: Settings → Secrets and variables → Actions → Repository secrets"
             exit 1
           fi
 
@@ -450,16 +444,18 @@ jobs:
 
       - name: Upload ISO to Azure Blob Storage
         run: |
+          CONTAINER="golden-images"
+
           # Install Azure CLI if not present
           if ! command -v az &>/dev/null; then
             curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash 2>/dev/null || \
-            brew install azure-cli 2>/dev/null || \
-            echo "::error::Could not install Azure CLI" && exit 1
+            brew install azure-cli 2>/dev/null || {
+              echo "::error::Could not install Azure CLI"
+              exit 1
+            }
           fi
 
           ISO_FILE=$(ls ./output/*.iso 2>/dev/null | head -1)
-          VALIDATE_FILE="./output/validate-golden-image.sh"
-          CONTAINER="${{ inputs.azure_container }}"
 
           if [ -z "$ISO_FILE" ]; then
             echo "::error::No ISO file to upload"
@@ -469,9 +465,17 @@ jobs:
           ISO_NAME=$(basename "$ISO_FILE")
           echo "Uploading ${ISO_NAME} to Azure container: ${CONTAINER}..."
 
+          # Create container if it doesn't exist
+          az storage container create \
+            --account-name "${AZURE_STORAGE_ACCOUNT}" \
+            --account-key "${AZURE_STORAGE_KEY}" \
+            --name "${CONTAINER}" \
+            2>/dev/null || true
+
           # Upload ISO
           az storage blob upload \
-            --connection-string "${{ secrets.AZURE_CONNECTION_STRING }}" \
+            --account-name "${AZURE_STORAGE_ACCOUNT}" \
+            --account-key "${AZURE_STORAGE_KEY}" \
             --container-name "${CONTAINER}" \
             --name "${ISO_NAME}" \
             --file "${ISO_FILE}" \
@@ -479,28 +483,20 @@ jobs:
 
           echo "ISO uploaded: ${ISO_NAME}"
 
-          # Upload validation script
-          if [ -f "$VALIDATE_FILE" ]; then
-            az storage blob upload \
-              --connection-string "${{ secrets.AZURE_CONNECTION_STRING }}" \
-              --container-name "${CONTAINER}" \
-              --name "validate-golden-image.sh" \
-              --file "${VALIDATE_FILE}" \
-              --overwrite true
-            echo "Validation script uploaded"
-          fi
-
           # Get blob URL
           ISO_URL=$(az storage blob url \
-            --connection-string "${{ secrets.AZURE_CONNECTION_STRING }}" \
+            --account-name "${AZURE_STORAGE_ACCOUNT}" \
+            --account-key "${AZURE_STORAGE_KEY}" \
             --container-name "${CONTAINER}" \
             --name "${ISO_NAME}" \
             --output tsv 2>/dev/null || echo "")
 
           echo "AZURE_ISO_URL=${ISO_URL}" >> $GITHUB_ENV
           echo "AZURE_ISO_NAME=${ISO_NAME}" >> $GITHUB_ENV
+          echo "AZURE_CONTAINER=${CONTAINER}" >> $GITHUB_ENV
         env:
-          AZURE_CONNECTION_STRING: ${{ secrets.AZURE_CONNECTION_STRING }}
+          AZURE_STORAGE_ACCOUNT: ${{ secrets.AZURE_STORAGE_ACCOUNT }}
+          AZURE_STORAGE_KEY: ${{ secrets.AZURE_STORAGE_KEY }}
 
       - name: Build summary
         if: always()
@@ -521,7 +517,7 @@ jobs:
             echo "| Extra Tools | \`${{ inputs.install_tools }}\` |" >> $GITHUB_STEP_SUMMARY
             echo "| ISO Size | ${SIZE} |" >> $GITHUB_STEP_SUMMARY
             echo "| Filename | \`${FILENAME}\` |" >> $GITHUB_STEP_SUMMARY
-            echo "| Azure Container | \`${{ inputs.azure_container }}\` |" >> $GITHUB_STEP_SUMMARY
+            echo "| Azure Container | \`${AZURE_CONTAINER:-golden-images}\` |" >> $GITHUB_STEP_SUMMARY
 
             if [ -n "${AZURE_ISO_URL:-}" ]; then
               echo "| Azure Blob URL | [Download](${AZURE_ISO_URL}) |" >> $GITHUB_STEP_SUMMARY
@@ -529,7 +525,7 @@ jobs:
 
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "### Next Steps" >> $GITHUB_STEP_SUMMARY
-            echo "1. Download ISO from Azure container \`${{ inputs.azure_container }}\`" >> $GITHUB_STEP_SUMMARY
+            echo "1. Download ISO from Azure container \`${AZURE_CONTAINER:-golden-images}\`" >> $GITHUB_STEP_SUMMARY
             echo "2. Boot a VM from the ISO and install Ubuntu" >> $GITHUB_STEP_SUMMARY
             echo "3. Run validation: \`sudo bash validate-golden-image.sh\`" >> $GITHUB_STEP_SUMMARY
           else
