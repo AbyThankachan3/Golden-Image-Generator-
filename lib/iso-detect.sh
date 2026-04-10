@@ -69,11 +69,7 @@ detect_iso_structure() {
         fi
     done
 
-    # ── 4. Find kernel paths ──
-    local KERNELS=$(find "$MP/casper" -maxdepth 1 \( -name "vmlinuz" -o -name "vmlinuz.*" -o -name "hwe-vmlinuz" -o -name "hwe-vmlinuz.*" \) 2>/dev/null | sort)
-    local INITRDS=$(find "$MP/casper" -maxdepth 1 \( -name "initrd" -o -name "initrd.*" -o -name "hwe-initrd" -o -name "hwe-initrd.*" \) 2>/dev/null | sort)
-    local HAS_HWE="no"
-    echo "$KERNELS" | grep -q "hwe-" && HAS_HWE="yes"
+   
 
     # ── 5. Find boot images ──
     local ELTORITO_IMG=$(find "$MP/boot/grub" -name "eltorito.img" -path "*/i386-pc/*" 2>/dev/null | head -1)
