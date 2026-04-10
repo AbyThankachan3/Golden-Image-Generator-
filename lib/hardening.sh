@@ -268,7 +268,7 @@ GRUBEOF
             # It patches 10_linux's CLASS variable to include --unrestricted.
             # This survives subiquity reinstalling GRUB packages because:
             # - subiquity overwrites 10_linux but NOT 09_unrestricted_patch
-            # - subiquity runs update-grub after install → 09 patches 10 → grub.cfg is correct
+            # - subiquity runs update-grub after install -> 09 patches 10 -> grub.cfg is correct
             cat > "$ROOT/etc/grub.d/09_unrestricted_patch" << 'PATCH_SCRIPT'
 #!/bin/sh
 # Auto-patch 10_linux to add --unrestricted before it generates menu entries.
@@ -283,7 +283,7 @@ PATCH_SCRIPT
             log "GRUB 09_unrestricted_patch installed (auto-patches 10_linux during update-grub)"
 
             # NOTE: DPkg::Post-Invoke hook removed — it had APT config syntax issues
-            # that broke apt_pkg.init_config() → crashed subiquity.
+            # that broke apt_pkg.init_config() -> crashed subiquity.
             # The 09_unrestricted_patch script above handles all cases:
             # it runs before 10_linux during every update-grub call,
             # so even if subiquity reinstalls GRUB, the next update-grub re-patches it.

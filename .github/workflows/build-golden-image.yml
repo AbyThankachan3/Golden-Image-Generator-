@@ -60,7 +60,7 @@ jobs:
   review-cis:
     name: "Review: CIS Hardening Values"
     if: inputs.enable_hardening == true
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     timeout-minutes: 5
 
     steps:
@@ -71,7 +71,7 @@ jobs:
         run: |
           if [ -z "${{ secrets.GRUB_PASSWORD }}" ]; then
             echo "::error::GRUB_PASSWORD secret is required when CIS hardening is enabled."
-            echo "::error::Set it under: Settings → Secrets and variables → Actions → Repository secrets"
+            echo "::error::Set it under: Settings -> Secrets and variables -> Actions -> Repository secrets"
             exit 1
           fi
 
@@ -128,7 +128,7 @@ jobs:
   review-tools:
     name: "Review: Extra Tools"
     if: inputs.install_tools == true
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     timeout-minutes: 5
 
     steps:
@@ -200,7 +200,7 @@ jobs:
   analyze:
     name: "Review: Package Analysis"
     if: inputs.mode != 'build-only'
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     timeout-minutes: 60
 
     steps:
@@ -219,11 +219,11 @@ jobs:
 
       - name: Run package analysis
         run: |
-          mkdir -p $HOME/GoldenImages/cache
+          mkdir -p ./cache
           ./golden-image-builder.sh \
             --analyze-only \
             --output-dir ./output \
-            --cache-dir $HOME/GoldenImages/cache \
+            --cache-dir ./cache \
             --url "${{ inputs.iso_url }}"
 
       - name: Display packages for review
@@ -311,7 +311,7 @@ jobs:
       (needs.analyze.result == 'success' || needs.analyze.result == 'skipped') &&
       (needs.review-cis.result == 'success' || needs.review-cis.result == 'skipped') &&
       (needs.review-tools.result == 'success' || needs.review-tools.result == 'skipped')
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     timeout-minutes: 120
 
     steps:
@@ -325,7 +325,7 @@ jobs:
         run: |
           if [ -z "${{ secrets.AZURE_CREDENTIALS }}" ]; then
             echo "::error::AZURE_CREDENTIALS secret is required for uploading the ISO."
-            echo "::error::Set it under: Settings → Secrets and variables → Actions → Repository secrets"
+            echo "::error::Set it under: Settings -> Secrets and variables -> Actions -> Repository secrets"
             echo "::error::Format: JSON with clientId, clientSecret, subscriptionId, tenantId"
             exit 1
           fi
@@ -386,8 +386,8 @@ jobs:
 
       - name: Build golden image
         run: |
-          mkdir -p $HOME/GoldenImages/cache
-          ARGS="--auto-approve --output-dir ./output --cache-dir $HOME/GoldenImages/cache"
+          mkdir -p ./cache
+          ARGS="--auto-approve --output-dir ./output --cache-dir ./cache"
           ARGS="${ARGS} --packages-file ./output/approved-packages.txt"
 
           if [ "${{ inputs.enable_hardening }}" = "true" ]; then
@@ -510,6 +510,15 @@ jobs:
           echo "AZURE_ISO_URL=${ISO_URL}" >> $GITHUB_ENV
           echo "AZURE_ISO_NAME=${ISO_NAME}" >> $GITHUB_ENV
 
+      - name: Upload validation script as artifact
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: validation-script
+          path: ./output/validate-golden-image.sh
+          retention-days: 30
+          if-no-files-found: ignore
+
       - name: Build summary
         if: always()
         run: |
@@ -539,8 +548,9 @@ jobs:
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "### Next Steps" >> $GITHUB_STEP_SUMMARY
             echo "1. Download ISO from Azure: \`${{ env.AZURE_STORAGE_ACCOUNT }}\` / \`${{ env.AZURE_CONTAINER }}\`" >> $GITHUB_STEP_SUMMARY
-            echo "2. Boot a VM from the ISO and install Ubuntu" >> $GITHUB_STEP_SUMMARY
-            echo "3. Run validation: \`sudo bash validate-golden-image.sh\`" >> $GITHUB_STEP_SUMMARY
+            echo "2. Download \`validate-golden-image.sh\` from the **Artifacts** section of this workflow run" >> $GITHUB_STEP_SUMMARY
+            echo "3. Boot a VM from the ISO and install Ubuntu" >> $GITHUB_STEP_SUMMARY
+            echo "4. SCP the validation script to the VM and run: \`sudo bash validate-golden-image.sh\`" >> $GITHUB_STEP_SUMMARY
           else
             echo "### Build Failed" >> $GITHUB_STEP_SUMMARY
             echo "No ISO produced. Check build logs for errors." >> $GITHUB_STEP_SUMMARY

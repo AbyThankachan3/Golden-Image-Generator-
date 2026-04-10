@@ -114,7 +114,7 @@ PROTECT_PKGS="cloud-init apport python3-apport openssh-server netplan.io iproute
 for pkg in $PROTECT_PKGS; do
     apt-mark manual "$pkg" 2>/dev/null || true
 done
-echo -e "${GREEN}  ✔  Protected packages marked as manual${NC}"
+echo -e "${GREEN}  [OK]Protected packages marked as manual${NC}"
 
 # Filter to only installed packages
 INSTALLED_PKGS=""
@@ -129,7 +129,7 @@ done
 INSTALLED_PKGS=$(echo "$INSTALLED_PKGS" | xargs)
 
 if [ -z "$INSTALLED_PKGS" ]; then
-    echo -e "${YELLOW}  ⚠  No packages from list are installed — nothing to remove${NC}"
+    echo -e "${YELLOW}  [WARN]No packages from list are installed — nothing to remove${NC}"
     exit 0
 fi
 
@@ -151,13 +151,13 @@ if [ -n "$WOULD_REMOVE" ]; then
 fi
 
 if [ -n "$CRITICAL_HIT" ]; then
-    echo -e "  ${RED}✖  ABORT: Dry-run would remove critical packages:${NC}"
+    echo -e "  ${RED}[FAIL]  ABORT: Dry-run would remove critical packages:${NC}"
     for pkg in $CRITICAL_HIT; do
         echo -e "    ${RED}- $pkg${NC}"
     done
     exit 1
 fi
-echo -e "  ${GREEN}✔  Dry-run safe — no critical packages affected${NC}"
+echo -e "  ${GREEN}[OK]  Dry-run safe — no critical packages affected${NC}"
 
 # ── Actual removal (one-by-one for safety) ──
 echo -e "\n  Removing packages..."
@@ -167,11 +167,11 @@ for pkg in $INSTALLED_PKGS; do
     if apt-get remove --purge -y "$pkg" >/dev/null 2>&1; then
         REMOVED=$((REMOVED + 1))
     else
-        echo -e "  ${YELLOW}⚠  Could not remove: $pkg${NC}"
+        echo -e "  ${YELLOW}[WARN] Could not remove: $pkg${NC}"
         FAILED=$((FAILED + 1))
     fi
 done
-echo -e "  ${GREEN}✔  Removed: $REMOVED  |  Failed: $FAILED${NC}"
+echo -e "  ${GREEN}[OK] Removed: $REMOVED  |  Failed: $FAILED${NC}"
 
 # ── SAFETY GATE 2: Dry-run autoremove ──
 echo -e "\n  ${YELLOW}Safety Gate 2: Checking autoremove...${NC}"
@@ -197,9 +197,9 @@ else
     if [ "$AUTO_COUNT" -gt 0 ]; then
         echo -e "  Autoremove will clean $AUTO_COUNT orphaned packages"
         apt-get autoremove --purge -y >/dev/null 2>&1
-        echo -e "  ${GREEN}✔  Autoremove complete${NC}"
+        echo -e "  ${GREEN}[OK] Autoremove complete${NC}"
     else
-        echo -e "  ${GREEN}✔  No orphaned packages to autoremove${NC}"
+        echo -e "  ${GREEN}[OK] No orphaned packages to autoremove${NC}"
     fi
 fi
 
@@ -218,11 +218,11 @@ if [ -n "$STALE_PKGS" ]; then
     for pkg in $STALE_PKGS; do
         rm -f /var/lib/dpkg/info/${pkg}.* 2>/dev/null
     done
-    echo -e "  ${GREEN}✔${NC}  Cleaned ${STALE_COUNT} stale dpkg entries (no warnings on installed system)"
+    echo -e "  ${GREEN}[OK]${NC}  Cleaned ${STALE_COUNT} stale dpkg entries (no warnings on installed system)"
 fi
 
 FINAL_COUNT=$(dpkg-query -f '${Status}\n' -W 2>/dev/null | grep -c "install ok installed")
-echo -e "\n  ${GREEN}✔  Final package count: $FINAL_COUNT${NC}"
+echo -e "\n  ${GREEN}[OK]  Final package count: $FINAL_COUNT${NC}"
 CHROOT_REMOVAL
 
     log "Package removal complete"

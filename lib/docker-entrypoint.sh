@@ -218,10 +218,10 @@ if echo "$ISO_CHECK" | grep -q "ISO 9660"; then
     if echo "$ISO_CHECK" | grep -q "bootable"; then
         echo -e "  Bootable     : ${GREEN} Yes (MBR boot sector detected)${NC}"
     else
-        echo -e "  Bootable     : ⚠️  MBR boot flag not detected (UEFI-only?)"
+        echo -e "  Bootable     : [WARN] MBR boot flag not detected (UEFI-only?)"
     fi
 else
-    echo -e "  ${RED}ISO type     : ❌ NOT a valid ISO — build may have failed${NC}"
+    echo -e "  ${RED}ISO type     : [FAIL] NOT a valid ISO -- build may have failed${NC}"
 fi
 
 echo ""

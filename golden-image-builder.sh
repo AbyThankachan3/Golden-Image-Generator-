@@ -58,7 +58,7 @@ ${BOLD}Options:${NC}
   -h, --help             Show this help
 
 ${BOLD}Examples:${NC}
-  $0 22.04.5                                    # Interactive: analyze → approve → build
+  $0 22.04.5                                    # Interactive: analyze -> approve -> build
   $0 --analyze-only 24.04.1                     # Just analyze packages
   $0 --auto-approve 22.04.5                     # Auto-approve SAFE packages
   $0 --packages-file packages-to-remove-4.txt 22.04.5  # Use existing list
@@ -127,7 +127,7 @@ load_overrides "$PROJECT_DIR/configs"
 GRUB_HASH_FILE="$PROJECT_DIR/hardening/secrets/grub-password.hash"
 if [ "$HARDENING_LAYER2_ENABLE" = "true" ]; then
     if [ -f "$GRUB_HASH_FILE" ] && [ -s "$GRUB_HASH_FILE" ]; then
-        echo -e "  ${GREEN}✔${NC}  Using existing GRUB password hash"
+        echo -e "  ${GREEN}[OK]${NC}  Using existing GRUB password hash"
     else
         echo ""
         echo -e "  ${BOLD}GRUB Password Setup${NC}"
@@ -141,7 +141,7 @@ if [ "$HARDENING_LAYER2_ENABLE" = "true" ]; then
         echo ""
 
         if [ -z "$GRUB_PASS_1" ]; then
-            echo -e "  ${YELLOW}⚠${NC}  Empty password — skipping GRUB password protection"
+            echo -e "  ${YELLOW}[WARN]${NC}  Empty password — skipping GRUB password protection"
         elif [ "$GRUB_PASS_1" != "$GRUB_PASS_2" ]; then
             die "Passwords do not match"
         else
@@ -161,7 +161,7 @@ if [ "$HARDENING_LAYER2_ENABLE" = "true" ]; then
                 if [ ! -f "$PROJECT_DIR/hardening/secrets/.gitignore" ]; then
                     echo -e "*\n!.gitignore" > "$PROJECT_DIR/hardening/secrets/.gitignore"
                 fi
-                echo -e "  ${GREEN}✔${NC}  GRUB password hash generated and saved"
+                echo -e "  ${GREEN}[OK]${NC}  GRUB password hash generated and saved"
             else
                 warn "Could not generate GRUB hash — GRUB password will be skipped"
             fi
@@ -182,7 +182,7 @@ if ! docker info &>/dev/null; then
 fi
 
 # ══════════════════════════════════════════════════════════
-#  If --packages-file provided, skip analysis → go to build
+#  If --packages-file provided, skip analysis -> go to build
 # ══════════════════════════════════════════════════════════
 if [ -n "$PACKAGES_FILE" ]; then
     if [ ! -f "$PACKAGES_FILE" ]; then
@@ -200,9 +200,9 @@ if [ -n "$PACKAGES_FILE" ]; then
     # Show hardening status
     if [ "$HARDENING_LAYER1_ENABLE" = "true" ] || [ "$HARDENING_LAYER2_ENABLE" = "true" ] || [ "$HARDENING_LAYER3_ENABLE" = "true" ]; then
         echo -e "  ${BOLD}Hardening:${NC}"
-        [ "$HARDENING_LAYER1_ENABLE" = "true" ] && echo "    ✔ Encryption packages (cryptsetup, clevis)"
-        [ "$HARDENING_LAYER2_ENABLE" = "true" ] && echo "    ✔ SSH/sysctl config hardening"
-        [ "$HARDENING_LAYER3_ENABLE" = "true" ] && echo "    ✔ CIS Level 1 controls (in squashfs)"
+        [ "$HARDENING_LAYER1_ENABLE" = "true" ] && echo "    [OK]Encryption packages (cryptsetup, clevis)"
+        [ "$HARDENING_LAYER2_ENABLE" = "true" ] && echo "    [OK]SSH/sysctl config hardening"
+        [ "$HARDENING_LAYER3_ENABLE" = "true" ] && echo "    [OK]CIS Level 1 controls (in squashfs)"
         echo ""
     fi
     [ "$INSTALL_TOOLS_ENABLE" = "true" ] && echo -e "  ${BOLD}Extra Tools:${NC} enabled (extra-tools.yml)" && echo ""
@@ -334,13 +334,13 @@ else
     case "${CHOICE:-Y}" in
         [Yy]|"")
             cp "$OUTPUT_DIR/safe-packages.txt" "$APPROVED_FILE"
-            echo -e "  ${GREEN}✔  Approved${NC}"
+            echo -e "  ${GREEN}[OK]  Approved${NC}"
             ;;
         [Ee])
             cp "$OUTPUT_DIR/safe-packages.txt" "$APPROVED_FILE"
             "${EDITOR:-nano}" "$APPROVED_FILE"
             EDITED_COUNT=$(grep -v '^#' "$APPROVED_FILE" | grep -v '^$' | wc -l | tr -d " ")
-            echo -e "  ${GREEN}✔  Approved (edited: ${EDITED_COUNT} packages)${NC}"
+            echo -e "  ${GREEN}[OK]  Approved (edited: ${EDITED_COUNT} packages)${NC}"
             ;;
         [Nn])
             echo -e "  ${YELLOW}Aborted by user${NC}"
@@ -363,9 +363,9 @@ echo ""
 # Show hardening status
 if [ "$HARDENING_LAYER1_ENABLE" = "true" ] || [ "$HARDENING_LAYER2_ENABLE" = "true" ] || [ "$HARDENING_LAYER3_ENABLE" = "true" ]; then
     echo -e "  ${BOLD}Hardening:${NC}"
-    [ "$HARDENING_LAYER1_ENABLE" = "true" ] && echo "    ✔ Encryption packages (cryptsetup, clevis)"
-    [ "$HARDENING_LAYER2_ENABLE" = "true" ] && echo "    ✔ SSH/sysctl config hardening"
-    [ "$HARDENING_LAYER3_ENABLE" = "true" ] && echo "    ✔ CIS Level 1 controls (in squashfs)"
+    [ "$HARDENING_LAYER1_ENABLE" = "true" ] && echo "    [OK]Encryption packages (cryptsetup, clevis)"
+    [ "$HARDENING_LAYER2_ENABLE" = "true" ] && echo "    [OK]SSH/sysctl config hardening"
+    [ "$HARDENING_LAYER3_ENABLE" = "true" ] && echo "    [OK]CIS Level 1 controls (in squashfs)"
     echo ""
 fi
 [ "$INSTALL_TOOLS_ENABLE" = "true" ] && echo -e "  ${BOLD}Extra Tools:${NC} enabled (extra-tools.yml)" && echo ""
@@ -419,7 +419,7 @@ echo ""
 
 # Bootable check
 if file "${ISO_FINAL}" | grep -q "(bootable)"; then
-    echo -e "  ${GREEN} Bootable:   YES ✓${NC}"
+    echo -e "  ${GREEN} Bootable:   YES${NC}"
 else
     echo -e "  ${RED} Bootable:   NO ✗ — ISO may not boot correctly!${NC}"
 fi

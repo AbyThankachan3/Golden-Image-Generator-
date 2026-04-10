@@ -12,10 +12,10 @@ MAGENTA='\033[0;35m'
 BOLD='\033[1m'
 NC='\033[0m'
 
-log()   { echo -e "${GREEN}  ✔  ${NC}${BOLD}$1${NC}"; }
-warn()  { echo -e "${YELLOW}  ⚠  ${NC}$1"; }
-err()   { echo -e "${RED}  ✖  ${NC}$1" >&2; }
-info()  { echo -e "${MAGENTA}  ▶  ${BOLD}$1${NC}"; }
+log()   { echo -e "${GREEN}  [OK]  ${NC}${BOLD}$1${NC}"; }
+warn()  { echo -e "${YELLOW}  [WARN]  ${NC}$1"; }
+err()   { echo -e "${RED}  [ERR]  ${NC}$1" >&2; }
+info()  { echo -e "${MAGENTA}  >>  ${BOLD}$1${NC}"; }
 step()  {
     local num="$1"; shift
     echo ""

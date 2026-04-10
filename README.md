@@ -18,7 +18,7 @@ The resulting ISO boots into the standard Ubuntu installer (subiquity), but the 
 - **CIS Level 1 benchmarking** — SSH hardening, kernel/sysctl tuning, password policies, audit rules, service masking, module blacklisting
 - **Automated package analysis** — Categorizes every package as SAFE, RISKY, or CRITICAL using dependency chain analysis and dry-run removal testing
 - **GitHub Actions workflow** — Three modes (analyze-only, build-only, analyze-and-build) with review/approve flow
-- **Lynis-validated** — Built-in validation script with Lynis integration.
+- **Validation script** — Auto-generated post-install validation to verify hardening, package removal, and extra tools.
 - **GRUB password protection** — PBKDF2-hashed boot password with unrestricted normal boot
 - **Single source of truth** — All hardening values in one `cis-config.yml` file, editable by anyone
 - **Docker-based builds** — Runs on any architecture via Docker, no root access needed on host
@@ -489,10 +489,8 @@ Every build generates a `validate-golden-image.sh` script tailored to the specif
 - Root account locked
 - Kernel hardening (ASLR, SYN cookies, dmesg restrict, etc.)
 
-### Section C: Lynis Audit
-- Temporarily installs Lynis, runs 200+ security checks
-- Extracts hardening score, warnings, and suggestions
-- Removes Lynis completely after audit (zero trace)
+### Section C: (Reserved)
+- For optional manual Lynis audit, install on the VM: `sudo apt install lynis && sudo lynis audit system`
 
 ### Section D: Hardening Verification
 - SSH config file present
@@ -502,6 +500,9 @@ Every build generates a `validate-golden-image.sh` script tailored to the specif
 - Audit rules present and active
 
 ### Running Validation
+
+1. Download `validate-golden-image.sh` from the **GitHub Actions workflow artifacts** (available for 30 days after each build)
+2. Copy to the installed VM and run:
 
 ```bash
 # Copy to the installed VM
@@ -513,11 +514,10 @@ ssh user@vm-ip 'sudo bash ~/validate-golden-image.sh'
 
 ### Expected Scores
 
-| Metric | Target | Achieved |
-|--------|--------|----------|
-| Validation score | 90%+ | 90% (20 PASS, 5 WARN, 0 FAIL) |
-| Lynis hardening index | 80+ | 84/100 |
-| Package count | Under 350 | ~280-330 depending on version |
+| Metric | Target |
+|--------|--------|
+| Validation score | 90%+ (0 FAIL) |
+| Package count | Under 350 (without extra tools) |
 
 ---
 

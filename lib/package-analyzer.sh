@@ -265,18 +265,18 @@ EOF
         fi
 
         if [ -n "$critical_cascade" ]; then
-            # Removing this cascades to critical → mark as CRITICAL
+            # Removing this cascades to critical -> mark as CRITICAL
             CRITICAL_PKGS[$pkg]=1
             CRITICAL_REASON[$pkg]="removal cascades to: $critical_cascade"
             echo "CRITICAL|$pkg|$priority|$rdep_count|removal cascades to: $critical_cascade" >> "$REPORT"
             CRITICAL_COUNT=$((CRITICAL_COUNT + 1))
         elif [ "$rdep_count" -gt 5 ]; then
-            # Many reverse deps → RISKY
+            # Many reverse deps -> RISKY
             local rdep_names=$(get_installed_rdeps "$pkg" | head -5 | tr '\n' ' ')
             echo "RISKY|$pkg|$priority|$rdep_count|$rdep_count rdeps: $rdep_names" >> "$REPORT"
             RISKY_COUNT=$((RISKY_COUNT + 1))
         elif [ "$priority" = "standard" ] && [ "$rdep_count" -gt 2 ]; then
-            # Standard priority with some rdeps → RISKY
+            # Standard priority with some rdeps -> RISKY
             echo "RISKY|$pkg|$priority|$rdep_count|standard priority, $rdep_count rdeps" >> "$REPORT"
             RISKY_COUNT=$((RISKY_COUNT + 1))
         else
