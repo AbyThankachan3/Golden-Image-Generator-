@@ -1,10 +1,5 @@
 name: Build Golden Image ISO
 
-# ── Azure Storage Configuration (hardcoded) ──────────────
-# Storage Account: <REPLACE_WITH_STORAGE_ACCOUNT>
-# Subscription ID: <REPLACE_WITH_SUBSCRIPTION_ID>
-# Container:       admin-golden-image-iso
-
 on:
   workflow_dispatch:
     inputs:
