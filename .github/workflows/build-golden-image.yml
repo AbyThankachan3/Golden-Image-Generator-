@@ -308,6 +308,7 @@ jobs:
       (needs.review-tools.result == 'success' || needs.review-tools.result == 'skipped')
     runs-on: ubuntu-latest
     timeout-minutes: 120
+    environment: devcc-westus3 
 
     steps:
       - name: Checkout repository
