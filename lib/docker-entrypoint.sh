@@ -163,7 +163,7 @@ regenerate_md5sums "$ISOWORK/extract"
 # ── Build ISO ────────────────────────────────────────────
 step 11 "Building Final ISO"
 
-CUSTOM_ISO="golden-ubuntu-minimal-${UBUNTU_VERSION}.iso"
+CUSTOM_ISO="golden-ubuntu-${UBUNTU_VERSION}.iso"
 
 # Find eltorito path relative to extract dir
 ELTORITO_REL=""
