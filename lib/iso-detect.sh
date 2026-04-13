@@ -1,11 +1,6 @@
-#!/usr/bin/env bash
-# ═══════════════════════════════════════════════════════════
-#  Auto-detect ISO structure (squashfs, kernels, boot images)
 #  Runs inside Docker after ISO is mounted
-# ═══════════════════════════════════════════════════════════
-
-# detect_iso_structure <mount_point> <output_env_file>
 # Discovers all paths dynamically, writes to a sourceable env file
+
 detect_iso_structure() {
     local MP="$1"
     local OUT="$2"
@@ -69,9 +64,7 @@ detect_iso_structure() {
         fi
     done
 
-   
-
-    # ── 5. Find boot images ──
+    # ── 6. Find boot images ──
     local ELTORITO_IMG=$(find "$MP/boot/grub" -name "eltorito.img" -path "*/i386-pc/*" 2>/dev/null | head -1)
     local EFI_IMG_INTERNAL=$(find "$MP/boot/grub" -name "efi.img" 2>/dev/null | head -1)
     local HAS_ISOLINUX="no"
@@ -88,13 +81,8 @@ detect_iso_structure() {
     for gc in "$MP/boot/grub/grub.cfg" "$MP/grub/grub.cfg"; do
         [ -f "$gc" ] && GRUB_CFG="$gc" && break
     done
-
-    # ── Write detected values ──
-    # Collapse multi-line variables (from find output) to colon-delimited single lines
-    local ALL_SQUASHFS_FLAT KERNELS_FLAT INITRDS_FLAT
     ALL_SQUASHFS_FLAT=$(printf '%s' "$ALL_SQUASHFS" | tr '\n' ':' | sed 's/:$//')
-    KERNELS_FLAT=$(printf '%s' "$KERNELS" | tr '\n' ':' | sed 's/:$//')
-    INITRDS_FLAT=$(printf '%s' "$INITRDS" | tr '\n' ':' | sed 's/:$//')
+   
 
     {
         echo "# Auto-detected ISO structure — $(date '+%Y-%m-%d %H:%M:%S')"
@@ -102,17 +90,13 @@ detect_iso_structure() {
         printf 'SQUASHFS_BASENAME=%q\n'     "$SQUASHFS_BASENAME"
         printf 'INSTALLER_SQUASHFS=%q\n'    "${INSTALLER_SQUASHFS:-}"
         printf 'ALL_SQUASHFS=%q\n'          "$ALL_SQUASHFS_FLAT"
-        printf 'KERNELS=%q\n'               "$KERNELS_FLAT"
-        printf 'INITRDS=%q\n'               "$INITRDS_FLAT"
-        printf 'HAS_HWE=%q\n'              "$HAS_HWE"
         printf 'ELTORITO_IMG=%q\n'          "${ELTORITO_IMG:-}"
         printf 'EFI_IMG_INTERNAL=%q\n'      "${EFI_IMG_INTERNAL:-}"
         printf 'HAS_ISOLINUX=%q\n'          "$HAS_ISOLINUX"
         printf 'GRUB_CFG=%q\n'              "${GRUB_CFG:-}"
         printf 'DISK_INFO=%q\n'             "$DISK_INFO"
     } > "$OUT"
-
-    log "ISO structure detected ($(echo "$ALL_SQUASHFS" | wc -l | tr -d ' ') squashfs layers, HWE=$HAS_HWE)"
+    log "ISO structure detected ($(echo "$ALL_SQUASHFS" | wc -l | tr -d ' ') squashfs layers)"
 }
 
 # extract_efi_image <iso_path> <output_efi_path> <workdir>
