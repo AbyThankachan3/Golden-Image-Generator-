@@ -22,7 +22,7 @@ The resulting ISO boots into the standard Ubuntu installer (subiquity), but the 
 - **GRUB password protection** — PBKDF2-hashed boot password with unrestricted normal boot
 - **Single source of truth** — All hardening values in one `cis-config.yml` file, editable by anyone
 - **Docker-based builds** — Runs on any architecture via Docker, no root access needed on host
-- **Self-hosted runner support** — Persistent ISO cache, local output, no artifact size limits
+- **GitHub Actions CI/CD** — Automated build pipeline with Azure Blob storage for ISO delivery
 - **Clean dpkg database** — Stale package entries are purged during build.
 
 ---
@@ -171,7 +171,7 @@ GoldenImageProject/
 
 - **Docker Desktop**  with at least 10GB free disk space
 - **Git** and a GitHub account
-- **Self-hosted GitHub Actions runner** (for CI/CD workflow)
+- **GitHub account** with Actions enabled (for CI/CD workflow)
 
 ### 1. Clone the Repository
 
@@ -180,23 +180,15 @@ git clone https://github.com/AbyThankachan3/Golden-Image-Generator-.git
 cd Golden-Image-Generator-
 ```
 
-### 2. Set Up GRUB Password
+### 2. Set Up Secrets
 
-**For GitHub Actions:**
-1. Go to repo **Settings** → **Secrets and variables** → **Actions**
-2. Add repository secret: `GRUB_PASSWORD` = your chosen password
-3. The workflow automatically generates the PBKDF2 hash during build
-4. To change the password, update the repository secret
+| Secret | Location | Description |
+|--------|----------|-------------|
+| `AZURE_CREDENTIALS` | Org environment (`devcc-westus3`) | Service Principal JSON for Azure Blob upload |
+| `GRUB_PASSWORD` | Repository secret | GRUB bootloader password (hash generated during build) |
 
 **For local builds:**
-No manual setup needed. On first run with `--harden-all`, the script automatically:
-1. Detects that `hardening/secrets/grub-password.hash` is missing or empty
-2. Prompts you to enter and confirm a GRUB password
-3. Generates the PBKDF2 hash via Docker
-4. Saves it to `hardening/secrets/grub-password.hash` (gitignored)
-5. Reuses the saved hash on all subsequent builds
-
-To change the GRUB password, simply empty the hash file and re-run build script.
+No secrets setup needed. On first run with `--harden-all`, the script automatically prompts for a GRUB password, generates the PBKDF2 hash via Docker, and saves it locally. To change the password, empty `hardening/secrets/grub-password.hash` and re-run.
 
 
 ### 3. Build Your First ISO
@@ -235,9 +227,9 @@ The workflow provides three modes:
 | ISO URL | Yes | Full download URL for the Ubuntu ISO |
 | Mode | Yes | `analyze-only`, `build-only`, or `analyze-and-build` |
 | Enable hardening | Yes | Toggle CIS Level 1 hardening on/off |
+| Install tools | Yes | Install extra tools from `extra-tools/` folder |
+| Extra tools file | No | Config filename from `extra-tools/` (default: `extra-tools.yml`) |
 | Output filename | No | Custom ISO filename (auto-generated if blank) |
-| Output path | No | Local path to save ISO (default: `~/GoldenImages/`) |
-| Storage | Yes | `local` (default), `azure-blob`, or `s3` |
 
 #### Typical Workflow
 
@@ -252,8 +244,8 @@ The workflow provides three modes:
    └── Push as approved-packages-24.04.4.txt to repo root
 
 3. Run build-only (or analyze-and-build)
-   └── ISO built at ~/GoldenImages/golden-ubuntu-minimal-24.04.4.iso
-   └── Validation script at ~/GoldenImages/validate-golden-image.sh
+   └── ISO uploaded to Azure Blob: admin-golden-image-iso container
+   └── Validation script available as GitHub artifact
 ```
 
 ### Command Line Usage
@@ -268,10 +260,8 @@ The workflow provides three modes:
 # Build with custom package list
 ./golden-image-builder.sh --packages-file approved-packages-24.04.4.txt --harden-all --url https://releases.ubuntu.com/24.04.4/ubuntu-24.04.4-live-server-amd64.iso
 
-# Build with custom output directory and cache
-./golden-image-builder.sh --auto-approve --harden-all \
-  --output-dir ./output \
-  --cache-dir ~/GoldenImages/cache \
+# Build with extra tools
+./golden-image-builder.sh --auto-approve --harden-all --install-tools \
   --url https://releases.ubuntu.com/24.04.4/ubuntu-24.04.4-live-server-amd64.iso
 ```
 
